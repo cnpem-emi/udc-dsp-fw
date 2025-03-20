@@ -113,13 +113,13 @@
 #define PI_CONTROLLER_I_LOAD_COEFFS     g_controller_mtoc.dsp_modules.dsp_pi[0].coeffs.s
 #define KP_I_LOAD                       PI_CONTROLLER_I_LOAD_COEFFS.kp
 #define KI_I_LOAD                       PI_CONTROLLER_I_LOAD_COEFFS.ki
-
+/*
 /// DC-link voltage feedforward controller
 #define FF_V_DCLINK                     &g_controller_ctom.dsp_modules.dsp_ff[0]
 #define FF_V_DCLINK_COEFFS              g_controller_mtoc.dsp_modules.dsp_ff[0].coeffs.s
 #define NOM_V_DCLINK_FF                 FF_V_DCLINK_COEFFS.vdc_nom
 #define MIN_V_DCLINK_FF                 FF_V_DCLINK_COEFFS.vdc_min
-
+*/
 /// PWM modulators
 #define PWM_MODULATOR_1                 g_pwm_modules.pwm_regs[0]
 #define PWM_MODULATOR_2                 g_pwm_modules.pwm_regs[1]
@@ -442,12 +442,12 @@ static void init_controller(void)
      *          in:     FREQ_MODULATED
      *         out:     FREQ_MODULATED_COMPENS
      */
-
+/*
     init_dsp_vdclink_ff(FF_V_DCLINK, NOM_V_DCLINK_FF,
                         MIN_V_DCLINK_FF,
                         &V_DCLINK, &FREQ_MODULATED,
                         &FREQ_MODULATED_COMPENS);
-
+*/
     /******************************/
     /** INITIALIZATION OF SCOPES **/
     /******************************/
@@ -490,7 +490,7 @@ static void reset_controller(void)
     reset_dsp_srlim(SRLIM_I_LOAD_REFERENCE);
     reset_dsp_error(ERROR_I_LOAD);
     reset_dsp_pi(PI_CONTROLLER_I_LOAD);
-    reset_dsp_vdclink_ff(FF_V_DCLINK);
+/*  reset_dsp_vdclink_ff(FF_V_DCLINK); */
     reset_dsp_srlim(SRLIM_SIGGEN_AMP);
     reset_dsp_srlim(SRLIM_SIGGEN_OFFSET);
     disable_siggen(&SIGGEN);
@@ -656,7 +656,7 @@ static interrupt void isr_controller(void)
             SATURATE(I_LOAD_REFERENCE, MAX_REF[0], MIN_REF[0]);
             run_dsp_error(ERROR_I_LOAD);
             run_dsp_pi(PI_CONTROLLER_I_LOAD);
-            run_dsp_vdclink_ff(FF_V_DCLINK);
+        /*  run_dsp_vdclink_ff(FF_V_DCLINK); */
             SATURATE(FREQ_MODULATED, MAX_REF_CL, MIN_REF_CL);
 
             /// Modulation frequency dead-zone compensation
@@ -955,14 +955,14 @@ static inline void check_interlocks(void)
             set_hard_interlock(0, Opened_Contactor_K1_Fault);
         }
 
-        if(!PIN_STATUS_CONTACTOR_K2)
+        if(!PIN_STATUS_CONTACTOR_K2 && !PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Opened_Contactor_K2_Fault);
         }
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            if(V_DCLINK > MIN_V_DCLINK && PIN_STATUS_CONTACTOR_K2)
+            if(V_DCLINK > MIN_V_DCLINK)
             {
                 g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
                 enable_pwm_output(0);
