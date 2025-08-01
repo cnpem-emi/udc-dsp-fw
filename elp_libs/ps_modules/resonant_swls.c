@@ -88,7 +88,9 @@
 
 #define FREQ_MODULATED          g_controller_ctom.net_signals[6].f
 
-#define FREQ_MODULATED_COMPENS  g_controller_ctom.output_signals[0].f
+#define FREQ_MODULATED_COMPENS  g_controller_ctom.net_signals[7].f
+
+#define FREQ_MODULATED_FF       g_controller_ctom.output_signals[0].f
 
 /// Reference
 #define I_LOAD_SETPOINT             g_ipc_ctom.ps_module[0].ps_setpoint
@@ -113,13 +115,13 @@
 #define PI_CONTROLLER_I_LOAD_COEFFS     g_controller_mtoc.dsp_modules.dsp_pi[0].coeffs.s
 #define KP_I_LOAD                       PI_CONTROLLER_I_LOAD_COEFFS.kp
 #define KI_I_LOAD                       PI_CONTROLLER_I_LOAD_COEFFS.ki
-/*
+
 /// DC-link voltage feedforward controller
 #define FF_V_DCLINK                     &g_controller_ctom.dsp_modules.dsp_ff[0]
 #define FF_V_DCLINK_COEFFS              g_controller_mtoc.dsp_modules.dsp_ff[0].coeffs.s
 #define NOM_V_DCLINK_FF                 FF_V_DCLINK_COEFFS.vdc_nom
 #define MIN_V_DCLINK_FF                 FF_V_DCLINK_COEFFS.vdc_min
-*/
+
 /// PWM modulators
 #define PWM_MODULATOR_1                 g_pwm_modules.pwm_regs[0]
 #define PWM_MODULATOR_2                 g_pwm_modules.pwm_regs[1]
@@ -438,16 +440,16 @@ static void init_controller(void)
      *        name:     FF_V_DCLINK
      * description:     DCLINK voltage feed-forward controller
      *    DP class:     DSP_FF
-     *    vdc_meas:     V_DCLINK_FILTERED
-     *          in:     FREQ_MODULATED
-     *         out:     FREQ_MODULATED_COMPENS
+     *    vdc_meas:     V_DCLINK
+     *          in:     FREQ_MODULATED_COMPENS
+     *         out:     FREQ_MODULATED_FF
      */
-/*
+
     init_dsp_vdclink_ff(FF_V_DCLINK, NOM_V_DCLINK_FF,
                         MIN_V_DCLINK_FF,
-                        &V_DCLINK, &FREQ_MODULATED,
-                        &FREQ_MODULATED_COMPENS);
-*/
+                        &V_DCLINK, &FREQ_MODULATED_COMPENS,
+                        &FREQ_MODULATED_FF);
+
     /******************************/
     /** INITIALIZATION OF SCOPES **/
     /******************************/
@@ -490,7 +492,7 @@ static void reset_controller(void)
     reset_dsp_srlim(SRLIM_I_LOAD_REFERENCE);
     reset_dsp_error(ERROR_I_LOAD);
     reset_dsp_pi(PI_CONTROLLER_I_LOAD);
-/*  reset_dsp_vdclink_ff(FF_V_DCLINK); */
+    reset_dsp_vdclink_ff(FF_V_DCLINK);
     reset_dsp_srlim(SRLIM_SIGGEN_AMP);
     reset_dsp_srlim(SRLIM_SIGGEN_OFFSET);
     disable_siggen(&SIGGEN);
@@ -646,9 +648,8 @@ static interrupt void isr_controller(void)
         if(g_ipc_ctom.ps_module[0].ps_status.bit.openloop)
         {
             SATURATE(I_LOAD_REFERENCE, MAX_REF_OL[0], MIN_REF_OL[0])
-            FREQ_MODULATED = I_LOAD_REFERENCE;
-            FREQ_MODULATED_COMPENS = FREQ_MODULATED;
-            SATURATE(FREQ_MODULATED_COMPENS, MAX_REF_OL[0], MIN_REF_OL[0]);
+			FREQ_MODULATED_FF = I_LOAD_REFERENCE;
+            SATURATE(FREQ_MODULATED_FF, MAX_REF_OL[0], MIN_REF_OL[0]);
         }
         /// Closed-loop
         else
@@ -656,17 +657,17 @@ static interrupt void isr_controller(void)
             SATURATE(I_LOAD_REFERENCE, MAX_REF[0], MIN_REF[0]);
             run_dsp_error(ERROR_I_LOAD);
             run_dsp_pi(PI_CONTROLLER_I_LOAD);
-        /*  run_dsp_vdclink_ff(FF_V_DCLINK); */
-            SATURATE(FREQ_MODULATED, MAX_REF_CL, MIN_REF_CL);
 
             /// Modulation frequency dead-zone compensation
             FREQ_MODULATED_COMPENS = FREQ_MODULATED + FREQ_DEADZONE_HZ;
             SATURATE(FREQ_MODULATED_COMPENS, MAX_REF_CL, MIN_REF_CL);
 
+            run_dsp_vdclink_ff(FF_V_DCLINK);
+            SATURATE(FREQ_MODULATED_FF, MAX_REF_CL, MIN_REF_CL);
         }
 
-        set_pwm_freq(PWM_MODULATOR_1, FREQ_MODULATED_COMPENS);
-        set_pwm_freq(PWM_MODULATOR_2, FREQ_MODULATED_COMPENS);
+        set_pwm_freq(PWM_MODULATOR_1, FREQ_MODULATED_FF);
+        set_pwm_freq(PWM_MODULATOR_2, FREQ_MODULATED_FF);
 
         cfg_pwm_sync(PWM_MODULATOR_1, PWM_Sync_Master, 0.0);
         cfg_pwm_sync(PWM_MODULATOR_2, PWM_Sync_Slave, 180.0);
@@ -851,7 +852,10 @@ static void reset_interlocks(uint16_t dummy)
 
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state < Initializing)
     {
-        if(PIN_STATUS_CONTACTOR_K1)
+    	init_control_framework(&g_controller_ctom);
+    	init_control_framework(&g_controller_mtoc);
+
+    	if(PIN_STATUS_CONTACTOR_K1)
         {
             PIN_CLOSE_CONTACTOR_K1;
             DELAY_US(RESET_PULSE_TIME_CONTACTOR_K1_MS*1000);
