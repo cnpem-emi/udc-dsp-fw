@@ -1132,7 +1132,10 @@ static void reset_interlocks(uint16_t dummy)
 
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state < Initializing)
     {
-        g_ipc_ctom.ps_module[0].ps_status.bit.state = Off;
+    	init_control_framework(&g_controller_ctom);
+    	init_control_framework(&g_controller_mtoc);
+
+    	g_ipc_ctom.ps_module[0].ps_status.bit.state = Off;
 
         PIN_CLEAR_IDB_INTERLOCK;
         DELAY_US(DELAY_TIME_INTERLOCK_IDB_US);
