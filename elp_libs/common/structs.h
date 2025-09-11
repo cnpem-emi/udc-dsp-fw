@@ -37,6 +37,7 @@ typedef struct
     buf_status_t    status;
     volatile float  *p_buf_start;
     volatile float  *p_buf_end;
+    volatile float  *p_buf_stop;
     volatile float  *p_buf_idx;
 } buf_t;
 

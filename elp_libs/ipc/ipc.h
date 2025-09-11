@@ -78,6 +78,7 @@ typedef enum
     Cfg_Source_Scope,
     Cfg_Freq_Scope,
     Cfg_Duration_Scope,
+    Cfg_Trig_Delay_Scope,
     Enable_Scope,
     Disable_Scope,
     Reset_Scope,

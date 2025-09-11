@@ -62,7 +62,9 @@ void reset_buffer(buf_t *p_buf)
  */
 void enable_buffer(buf_t *p_buf)
 {
-    p_buf->status = Idle;
+    //p_buf->status = Idle;
+    p_buf->status = Buffering;
+    p_buf->p_buf_stop = p_buf->p_buf_end + 1;
 }
 
 /**
@@ -73,6 +75,7 @@ void enable_buffer(buf_t *p_buf)
 void disable_buffer(buf_t *p_buf)
 {
     p_buf->status = Disabled;
+    p_buf->p_buf_stop = p_buf->p_buf_end + 1;
 }
 
 /**
@@ -94,7 +97,7 @@ void postmortem_buffer(buf_t *p_buf)
 uint16_t size_buffer(buf_t *p_buf)
 {
     static uint16_t size;
-    size = p_buf->p_buf_end - p_buf->p_buf_start;
+    size = p_buf->p_buf_end - p_buf->p_buf_start + 1;
     return size;
 }
 
@@ -138,10 +141,15 @@ uint16_t insert_buffer(buf_t *p_buf, float data)
         {
             *(p_buf->p_buf_idx) = data;
 
+            if(p_buf->p_buf_idx == p_buf->p_buf_stop)
+            {
+                p_buf->status = Disabled;
+            }
+
             if(p_buf->p_buf_idx++ == p_buf->p_buf_end)
             {
                 p_buf->p_buf_idx = p_buf->p_buf_start;
-                p_buf->status = Disabled;
+                //p_buf->status = Disabled;
             }
         }
         else

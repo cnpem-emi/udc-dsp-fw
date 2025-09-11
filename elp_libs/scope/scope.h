@@ -34,12 +34,13 @@
                         END_TIMESLICER(scp.timeslicer)
 
 typedef volatile struct scope_t scope_t;
+
 struct scope_t
 {
-
     buf_t           buffer;
     timeslicer_t    timeslicer;
     float           duration;
+    float           trig_delay;
     float           *p_source;
     void            (*p_run_scope)(scope_t *p_scp);
 };
@@ -65,5 +66,7 @@ extern void enable_scope(scope_t *p_scp);
 extern void disable_scope(scope_t *p_scp);
 extern void reset_scope(scope_t *p_scp);
 extern void run_scope_shared_ram(scope_t *p_scp);
+extern void cfg_trig_delay_scope(scope_t *p_scp, float delay);
+extern void trigger_scope(scope_t *p_scp);
 
 #endif

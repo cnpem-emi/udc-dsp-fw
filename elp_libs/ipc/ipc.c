@@ -314,6 +314,12 @@ interrupt void isr_ipc_lowpriority_msg(void)
                 break;
             }
 
+            case Cfg_Trig_Delay_Scope:
+            {
+                cfg_trig_delay_scope(&SCOPE_CTOM[msg_id],
+                                     SCOPE_MTOC[msg_id].trig_delay);
+                break;
+            }
 
             case Enable_Scope:
             {
@@ -521,13 +527,13 @@ interrupt void isr_ipc_sync_pulse(void)
 
     g_ipc_ctom.counter_sync_pulse++;
 
-    if(SCOPE_CTOM[0].buffer.status == Idle)
+    /*if(SCOPE_CTOM[0].buffer.status == Idle)
     {
         SCOPE_CTOM[0].buffer.status = Postmortem;
         SCOPE_CTOM[1].buffer.status = Postmortem;
         SCOPE_CTOM[2].buffer.status = Postmortem;
         SCOPE_CTOM[3].buffer.status = Postmortem;
-    }
+    }*/
 
     /**
      * Safe procedure to disable the XINT2 PIEIER bit and preserve associated

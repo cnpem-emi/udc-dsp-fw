@@ -22,6 +22,7 @@
 #include <float.h>
 
 #include "boards/udc_c28.h"
+#include "common/structs.h"
 #include "common/timeslicer.h"
 #include "control/control.h"
 #include "event_manager/event_manager.h"
@@ -183,6 +184,16 @@
 
 #define PS4_SCOPE                       SCOPE_CTOM[3]
 
+#define PS1_OVER_CURRENT_GLITCH         g_controller_ctom.net_signals[21].f // 0x0000D02A // Acesso pelo C28 Debug
+#define PS2_OVER_CURRENT_GLITCH         g_controller_ctom.net_signals[22].f // 0x0000D02C
+#define PS3_OVER_CURRENT_GLITCH         g_controller_ctom.net_signals[23].f // 0x0000D02E
+#define PS4_OVER_CURRENT_GLITCH         g_controller_ctom.net_signals[24].f // 0x0000D030
+
+#define PS1_REF_CURRENT_GLITCH         	g_controller_ctom.net_signals[25].f // 0x0000D032
+#define PS2_REF_CURRENT_GLITCH         	g_controller_ctom.net_signals[26].f // 0x0000D034
+#define PS3_REF_CURRENT_GLITCH         	g_controller_ctom.net_signals[27].f // 0x0000D036
+#define PS4_REF_CURRENT_GLITCH         	g_controller_ctom.net_signals[28].f // 0x0000D038
+
 /**
  * Interlocks defines
  */
@@ -243,11 +254,14 @@ static void close_relay(uint16_t id);
 
 static void reset_interlocks(uint16_t id);
 static void check_interlocks_ps_module(uint16_t id);
+static void check_glitch_ps_module(uint16_t id);
 
 static inline void run_dsp_pi_inline(dsp_pi_t *p_pi);
 static inline void set_pwm_duty_hbridge_inline(volatile struct EPWM_REGS
                                                *p_pwm_module, float duty_pu);
 static inline uint16_t insert_buffer_inline(buf_t *p_buf, float data);
+
+interrupt void isr_trigger_scope(void);
 
 /**
  * Main function for this power supply module
@@ -267,7 +281,15 @@ void main_fbp(void)
     /// TODO: include condition for re-initialization
     while(1)
     {
-        for(i = 0; i < NUM_MAX_PS_MODULES; i++)
+    	for(i = 0; i < NUM_MAX_PS_MODULES; i++)
+    	{
+    		if(g_ipc_ctom.ps_module[i].ps_status.bit.active)
+    		{
+    			check_glitch_ps_module(i);
+    		}
+    	}
+
+    	for(i = 0; i < NUM_MAX_PS_MODULES; i++)
         {
             if(g_ipc_ctom.ps_module[i].ps_status.bit.active)
             {
@@ -375,6 +397,16 @@ static void init_peripherals_drivers(void)
     ConfigCpuTimer(&CpuTimer0, C28_FREQ_MHZ,
                    (1000000.0/ISR_FREQ_INTERLOCK_TIMEBASE));
     CpuTimer0Regs.TCR.bit.TIE = 0;
+
+    /// Initialization of INT_C28 for Scope trigger ISR
+    EALLOW;
+    //GpioCtrlRegs.GPAQSEL2.bit.GPIO29 = 1;
+    GpioTripRegs.GPTRIP6SEL.bit.GPTRIP6SEL = 29;
+    XIntruptRegs.XINT3CR.bit.ENABLE = 1;
+    XIntruptRegs.XINT3CR.bit.POLARITY = 0;
+    PieVectTable.XINT3 = &isr_trigger_scope;
+    PieCtrlRegs.PIEIER12.bit.INTx1 = 1;               //    XINT3
+    EDIS;
 }
 
 static void term_peripherals_drivers(void)
@@ -645,6 +677,11 @@ static interrupt void isr_controller(void)
     //SET_DEBUG_GPIO0;
     SET_DEBUG_GPIO1;
 
+    temp[0] = 0.0;
+    temp[1] = 0.0;
+    temp[2] = 0.0;
+    temp[3] = 0.0;
+
     /// Get HRADC samples
     temp[0] = (float) *(HRADCs_Info.HRADC_boards[0].SamplesBuffer);
     temp[1] = (float) *(HRADCs_Info.HRADC_boards[1].SamplesBuffer);
@@ -815,6 +852,7 @@ static void init_interruptions(void)
     IER |= M_INT1;
     IER |= M_INT3;
     IER |= M_INT11;
+    IER |= M_INT12;
 
     /// Enable global interrupts (EINT)
     EINT;
@@ -966,7 +1004,10 @@ static void reset_interlocks(uint16_t id)
 
     if(g_ipc_ctom.ps_module[id].ps_status.bit.state < Initializing)
     {
-        g_ipc_ctom.ps_module[id].ps_status.bit.state = Off;
+        init_control_framework(&g_controller_ctom);
+        init_control_framework(&g_controller_mtoc);
+
+    	g_ipc_ctom.ps_module[id].ps_status.bit.state = Off;
     }
 }
 
@@ -1226,6 +1267,138 @@ static void check_interlocks_ps_module(uint16_t id)
     IER |= M_INT11;
 
     run_interlocks_debouncing(id);
+}
+
+interrupt void isr_trigger_scope(void)
+{
+	static uint16_t i;
+
+	for(i = 0; i < g_pwm_modules.num_modules; i++)
+	{
+		if(SCOPE_CTOM[i].buffer.status == Buffering)
+		{
+			trigger_scope(&SCOPE_CTOM[i]);
+			PieCtrlRegs.PIEACK.all |= M_INT12;
+		}
+	}
+}
+
+static void check_glitch_ps_module(uint16_t id)
+{
+	static float max_current[4] = {0,0,0,0};
+	static float max_ref[4] = {0,0,0,0};
+
+	static float min_current[4] = {0,0,0,0};
+	static float min_ref[4] = {0,0,0,0};
+
+	switch(id)
+	{
+		case PS1_ID:
+		{
+			if(g_ipc_ctom.ps_module[0].ps_reference > max_ref[0])
+			{
+				max_ref[0] = g_ipc_ctom.ps_module[0].ps_reference;
+				PS1_REF_CURRENT_GLITCH = max_ref[0];
+			}
+			if(g_ipc_ctom.ps_module[0].ps_reference < min_ref[0])
+			{
+				min_ref[0] = g_ipc_ctom.ps_module[0].ps_reference;
+				PS1_REF_CURRENT_GLITCH = min_ref[0];
+			}
+			if(g_controller_ctom.net_signals[0].f > max_current[0])
+			{
+				max_current[0] = g_controller_ctom.net_signals[0].f;
+				PS1_OVER_CURRENT_GLITCH = max_current[0];
+			}
+			if(g_controller_ctom.net_signals[0].f < min_current[0])
+			{
+				min_current[0] = g_controller_ctom.net_signals[0].f;
+				PS1_OVER_CURRENT_GLITCH = min_current[0];
+			}
+			break;
+		}
+
+		case PS2_ID:
+		{
+			if(g_ipc_ctom.ps_module[1].ps_reference > max_ref[1])
+			{
+				max_ref[1] = g_ipc_ctom.ps_module[1].ps_reference;
+				PS2_REF_CURRENT_GLITCH = max_ref[1];
+			}
+			if(g_ipc_ctom.ps_module[1].ps_reference < min_ref[1])
+			{
+				min_ref[1] = g_ipc_ctom.ps_module[1].ps_reference;
+				PS2_REF_CURRENT_GLITCH = min_ref[1];
+			}
+			if(g_controller_ctom.net_signals[1].f > max_current[1])
+			{
+				max_current[1] = g_controller_ctom.net_signals[1].f;
+				PS2_OVER_CURRENT_GLITCH = max_current[1];
+			}
+			if(g_controller_ctom.net_signals[1].f < min_current[1])
+			{
+				min_current[1] = g_controller_ctom.net_signals[1].f;
+				PS2_OVER_CURRENT_GLITCH = min_current[1];
+			}
+			break;
+		}
+
+		case PS3_ID:
+		{
+			if(g_ipc_ctom.ps_module[2].ps_reference > max_ref[2])
+			{
+				max_ref[2] = g_ipc_ctom.ps_module[2].ps_reference;
+				PS3_REF_CURRENT_GLITCH = max_ref[2];
+			}
+			if(g_ipc_ctom.ps_module[2].ps_reference < min_ref[2])
+			{
+				min_ref[2] = g_ipc_ctom.ps_module[2].ps_reference;
+				PS3_REF_CURRENT_GLITCH = min_ref[2];
+			}
+			if(g_controller_ctom.net_signals[2].f > max_current[2])
+			{
+				max_current[2] = g_controller_ctom.net_signals[2].f;
+				PS3_OVER_CURRENT_GLITCH = max_current[2];
+			}
+			if(g_controller_ctom.net_signals[2].f < min_current[2])
+			{
+				min_current[2] = g_controller_ctom.net_signals[2].f;
+				PS3_OVER_CURRENT_GLITCH = min_current[2];
+			}
+			break;
+		}
+
+		case PS4_ID:
+		{
+			if(g_ipc_ctom.ps_module[3].ps_reference > max_ref[3])
+			{
+				max_ref[3] = g_ipc_ctom.ps_module[3].ps_reference;
+				PS4_REF_CURRENT_GLITCH = max_ref[3];
+			}
+			if(g_ipc_ctom.ps_module[3].ps_reference < min_ref[3])
+			{
+				min_ref[3] = g_ipc_ctom.ps_module[3].ps_reference;
+				PS4_REF_CURRENT_GLITCH = min_ref[3];
+			}
+			if(g_controller_ctom.net_signals[3].f > max_current[3])
+			{
+				max_current[3] = g_controller_ctom.net_signals[3].f;
+				PS4_OVER_CURRENT_GLITCH = max_current[3];
+			}
+			if(g_controller_ctom.net_signals[3].f < min_current[3])
+			{
+				min_current[3] = g_controller_ctom.net_signals[3].f;
+				PS4_OVER_CURRENT_GLITCH = min_current[3];
+			}
+			break;
+		}
+
+		default:
+		{
+			break;
+		}
+	}
+
 }
 
 static inline void run_dsp_pi_inline(dsp_pi_t *p_pi)

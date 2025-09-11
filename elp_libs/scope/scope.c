@@ -45,14 +45,14 @@ void cfg_source_scope(scope_t *p_scp, float *p_source)
 void cfg_freq_scope(scope_t *p_scp, float freq_sampling)
 {
     cfg_timeslicer(&p_scp->timeslicer, freq_sampling);
-    p_scp->duration = ((float) (size_buffer(&p_scp->buffer) + 1)) / p_scp->timeslicer.freq_sampling;
+    p_scp->duration = ((float) size_buffer(&p_scp->buffer)) / p_scp->timeslicer.freq_sampling;
 }
 
 void cfg_duration_scope(scope_t *p_scp, float duration)
 {
     float freq_sampling;
 
-    freq_sampling = ((float) size_buffer(&p_scp->buffer) + 1) / duration;
+    freq_sampling = ((float) size_buffer(&p_scp->buffer)) / duration;
     cfg_freq_scope(p_scp, freq_sampling);
 }
 
@@ -79,4 +79,31 @@ void run_scope_shared_ram(scope_t *p_scp)
 /// TODO: Prototype for function which uses onboard RAM
 void run_scope_onboard_ram(scope_t *p_scp)
 {
+}
+
+void cfg_trig_delay_scope(scope_t *p_scp, float delay)
+{
+    if(delay > 100.0) delay = 100.0;
+    if(delay < 0.0) delay = 0.0;
+
+    p_scp->trig_delay = 1.0 - delay/100.0;
+}
+
+void trigger_scope(scope_t *p_scp)
+{
+    uint16_t buf_size = size_buffer(&p_scp->buffer);
+
+    p_scp->buffer.p_buf_stop = p_scp->buffer.p_buf_idx - 1 +
+                               ((uint16_t) (buf_size * p_scp->trig_delay));
+
+    if(p_scp->buffer.p_buf_stop > p_scp->buffer.p_buf_end)
+    {
+        p_scp->buffer.p_buf_stop = p_scp->buffer.p_buf_stop - buf_size;
+    }
+    else if(p_scp->buffer.p_buf_stop < p_scp->buffer.p_buf_start)
+    {
+        p_scp->buffer.p_buf_stop = p_scp->buffer.p_buf_end;
+    }
+
+    postmortem_buffer(&p_scp->buffer);
 }
