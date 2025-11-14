@@ -21,6 +21,8 @@
  */
 
 #include "scope/scope.h"
+#include "ipc/ipc.h"
+#include "parameters/parameters.h"
 
 void init_scope(scope_t *p_scp, float freq_base, float freq_sampling,
                 float *p_buf_start, uint16_t size, float *p_source,
@@ -106,4 +108,17 @@ void trigger_scope(scope_t *p_scp)
     }
 
     postmortem_buffer(&p_scp->buffer);
+}
+
+void trigger_scope_interlock(void)
+{
+	static uint16_t i;
+
+	for(i = 0; i < NUM_PS_MODULES; i++)
+	{
+		if(SCOPE_CTOM[i].buffer.status == Buffering)
+		{
+			trigger_scope(&SCOPE_CTOM[i]);
+		}
+	}
 }

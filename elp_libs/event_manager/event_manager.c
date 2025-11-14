@@ -37,6 +37,7 @@
 #include "boards/udc_c28.h"
 #include "event_manager/event_manager.h"
 #include "ipc/ipc.h"
+#include "scope/scope.h"
 
 /**
  * Maximum debouncing parameters
@@ -241,7 +242,11 @@ void set_hard_interlock(uint16_t id, uint32_t itlk)
         {
             if(!(g_ipc_ctom.ps_module[id].ps_hard_interlock & lut_bit_position[itlk]))
             {
-                #ifdef USE_ITLK
+                SET_DEBUG_GPIO1;
+
+                trigger_scope_interlock();
+
+            	#ifdef USE_ITLK
                 g_ipc_ctom.ps_module[id].turn_off(id);
                 g_ipc_ctom.ps_module[id].ps_status.bit.state = Interlock;
                 #endif

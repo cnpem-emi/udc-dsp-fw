@@ -341,7 +341,7 @@ interrupt void isr_ipc_lowpriority_msg(void)
 
             case Set_SlowRef:
             {
-                SET_DEBUG_GPIO1;
+                //SET_DEBUG_GPIO1;
 
                 if(g_ipc_ctom.ps_module[msg_id].ps_status.bit.state == SlowRef)
                 {
@@ -362,7 +362,7 @@ interrupt void isr_ipc_lowpriority_msg(void)
 
             case Set_SlowRef_All_PS:
             {
-                SET_DEBUG_GPIO1;
+                //SET_DEBUG_GPIO1;
 
                 for(i = 0; i < NUM_MAX_PS_MODULES; i++)
                 {

@@ -68,5 +68,6 @@ extern void reset_scope(scope_t *p_scp);
 extern void run_scope_shared_ram(scope_t *p_scp);
 extern void cfg_trig_delay_scope(scope_t *p_scp, float delay);
 extern void trigger_scope(scope_t *p_scp);
+extern void trigger_scope_interlock(void);
 
 #endif
