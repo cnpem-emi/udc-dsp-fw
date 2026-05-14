@@ -44,7 +44,7 @@
  *  disabled, interlock variables still indicate which interlock has occured,
  *  but the power supply can still operate normally
  */
-#define USE_ITLK
+//#define USE_ITLK
 
 #define NUM_MAX_EVENT_COUNTER       32
 

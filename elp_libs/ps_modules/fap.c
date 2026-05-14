@@ -301,9 +301,9 @@ static void init_peripherals_drivers(void)
 
     /// PWM initialization
     init_pwm_module(PWM_MODULATOR_IGBT_1, PWM_FREQ, 0, PWM_Sync_Master, 0,
-                    PWM_ChB_Independent, PWM_DEAD_TIME);
+                    PWM_ChB_Complementary, PWM_DEAD_TIME);
     init_pwm_module(PWM_MODULATOR_IGBT_2, PWM_FREQ, 1, PWM_Sync_Slave, 180,
-                    PWM_ChB_Independent, PWM_DEAD_TIME);
+                    PWM_ChB_Complementary, PWM_DEAD_TIME);
 
     InitEPwm1Gpio();
     InitEPwm2Gpio();
@@ -526,8 +526,8 @@ static void init_controller(void)
  */
 static void reset_controller(void)
 {
-    set_pwm_duty_chA(PWM_MODULATOR_IGBT_1, 0.0);
-    set_pwm_duty_chA(PWM_MODULATOR_IGBT_2, 0.0);
+    set_pwm_duty_chA(PWM_MODULATOR_IGBT_1, 50.0);
+    set_pwm_duty_chA(PWM_MODULATOR_IGBT_2, 50.0);
 
     g_ipc_ctom.ps_module[0].ps_status.bit.openloop = LOOP_STATE;
 
@@ -753,8 +753,8 @@ static interrupt void isr_controller(void)
             SATURATE(DUTY_CYCLE_IGBT_2, PWM_MAX_DUTY, PWM_MIN_DUTY);
         }
 
-        set_pwm_duty_chA(PWM_MODULATOR_IGBT_1, DUTY_CYCLE_IGBT_1);
-        set_pwm_duty_chA(PWM_MODULATOR_IGBT_2, DUTY_CYCLE_IGBT_2);
+        set_pwm_duty_hbridge(PWM_MODULATOR_IGBT_1, DUTY_CYCLE_IGBT_1);
+        set_pwm_duty_hbridge(PWM_MODULATOR_IGBT_2, DUTY_CYCLE_IGBT_2);
     }
 
     RUN_SCOPE(SCOPE);
@@ -853,14 +853,14 @@ static void turn_on(uint16_t dummy)
     #ifdef USE_ITLK
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Off)
     #else
-    if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
+    //if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     #endif
     {
-        if(V_DCLINK > MAX_V_DCLINK_TURN_ON)
+        /*if(V_DCLINK > MAX_V_DCLINK_TURN_ON)
         {
             BYPASS_HARD_INTERLOCK_DEBOUNCE(0, DCLink_Overvoltage);
             set_hard_interlock(0, DCLink_Overvoltage);
-        }
+        }*/
 
         #ifdef USE_ITLK
         else
@@ -870,11 +870,11 @@ static void turn_on(uint16_t dummy)
             PIN_CLOSE_DCLINK_CONTACTOR;
             DELAY_US(TIMEOUT_DCLINK_CONTACTOR_CLOSED_MS*1000);
 
-            if(!PIN_STATUS_DCLINK_CONTACTOR)
+            /*if(!PIN_STATUS_DCLINK_CONTACTOR)
             {
                 BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Opened_Contactor_Fault);
                 set_hard_interlock(0, Opened_Contactor_Fault);
-            }
+            }*/
 
             #ifdef USE_ITLK
             else
@@ -941,7 +941,7 @@ static inline void check_interlocks(void)
 {
     //SET_DEBUG_GPIO1;
 
-    if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
+   /* if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
     {
         set_hard_interlock(0, Load_Overcurrent);
     }
@@ -1012,11 +1012,11 @@ static inline void check_interlocks(void)
                 set_soft_interlock(0, Load_Feedback_2_Fault);
             }
         }
-    }
+    }*/
 
     DINT;
 
-    if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
+    /*if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     {
         if(PIN_STATUS_DCLINK_CONTACTOR)
         {
@@ -1024,29 +1024,29 @@ static inline void check_interlocks(void)
         }
     }
     else
-    {
-        if(!PIN_STATUS_DCLINK_CONTACTOR)
+    {*/
+        /*if(!PIN_STATUS_DCLINK_CONTACTOR)
         {
             set_hard_interlock(0, Opened_Contactor_Fault);
-        }
+        }*/
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            if(V_DCLINK > MIN_V_DCLINK)
-            {
+            /*if(V_DCLINK > MIN_V_DCLINK)
+            {*/
                 g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
                 enable_pwm_output(0);
                 enable_pwm_output(1);
-            }
+            //}
         }
-        else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) /// Power supply ON
+        /*else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) /// Power supply ON
         {
             if(V_DCLINK < MIN_V_DCLINK)
             {
                 set_hard_interlock(0, DCLink_Undervoltage);
             }
         }
-    }
+    }*/
 
     EINT;
 
