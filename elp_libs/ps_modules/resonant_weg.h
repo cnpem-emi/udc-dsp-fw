@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 by LNLS - Brazilian Synchrotron Light Laboratory
+ * Copyright (C) 2026 by LNLS - Brazilian Synchrotron Light Laboratory
  *
  * Redistribution, modification or use of this software in source or binary
  * forms is permitted as long as the files maintain this copyright. LNLS and
@@ -9,21 +9,21 @@
  *****************************************************************************/
 
 /**
- * @file resonant_swls.h
- * @brief Resonant converter module for SWLS
+ * @file resonant_weg.h
+ * @brief Resonant converter module for Superconducting Wing Generator (SWG)
  *
  * Module for control of resonant convert power supply designed for the
- * superconducting Wavelength Shifter. It implements the controller for load
+ * superconducting Wind Generator. It implements the controller for load
  * current.
  *
- * @author gabriel.brunheira
- * @date 18/07/2022
+ * @author lucas.carnevalli
+ * @date 26/05/2026
  *
  */
 
-#ifndef RESONANT_SWLS_H_
-#define RESONANT_SWLS_H_
+#ifndef RESONANT_WEG_H_
+#define RESONANT_WEG_H_
 
-extern void main_resonant_swls(void);
+extern void main_resonant_weg(void);
 
-#endif /* RESONANT_SWLS_H_ */
+#endif /* RESONANT_WEG_H_ */

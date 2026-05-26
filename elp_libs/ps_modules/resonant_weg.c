@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 by LNLS - Brazilian Synchrotron Light Laboratory
+ * Copyright (C) 2026 by LNLS - Brazilian Synchrotron Light Laboratory
  *
  * Redistribution, modification or use of this software in source or binary
  * forms is permitted as long as the files maintain this copyright. LNLS and
@@ -9,16 +9,16 @@
  *****************************************************************************/
 
 /**
- * @file resonant_swls.h
- * @brief Resonant converter module for SWLS
+ * @file resonant_weg.h
+ * @brief Resonant converter module for Superconductinng Wind Generator (SWG)
  *
  * Module for control of resonant convert power supply designed for the
- * superconducting Wavelength Shifter. It implements the controller for load
- * current using frequency modulation strategy, instead of pulse-width
+ * Superconductinng Wind Generator (SWG). It implements the controller for load
+ * current using frequency modulation strategy (FMS), instead of pulse-width
  * modulation (PWM).
  *
- * @author gabriel.brunheira
- * @date 18/07/2022
+ * @author lucas.carnevalli
+ * @date 26/05/2026
  *
  */
 
@@ -34,7 +34,7 @@
 #include "parameters/parameters.h"
 #include "pwm/pwm.h"
 
-#include "resonant_swls.h"
+#include "resonant_weg.h"
 
 /**
  * Analog variables parameters
@@ -46,9 +46,7 @@
 
 #define MAX_V_DCLINK_TURN_ON                    ANALOG_VARS_MAX[2]
 
-/// NUM_DCCTs == 0 : 1 DCCT
-/// NUM_DCCTs > 0  : 2 DCCT's
-#define NUM_DCCTs                               ANALOG_VARS_MAX[3]
+#define NUM_DCCTs                               ANALOG_VARS_MAX[3]  // > 0  : 2 DCCT's
 
 #define MAX_DCCTS_DIFF                          ANALOG_VARS_MAX[4]
 
@@ -68,6 +66,7 @@
 /// Dead time for PWMs -> rising and falling edge [ns]
 #define PWM_DEAD_TIME_RISING                    ANALOG_VARS_MIN[2]
 #define PWM_DEAD_TIME_FALLING                   ANALOG_VARS_MIN[3]
+#define PWM_DEAD_TIME_RISING_ACT_RET            ANALOG_VARS_MIN[6]
 
 /// used for compensate dead-zone [Hz]
 #define MAX_REF_CL                              ANALOG_VARS_MAX[11]
@@ -78,9 +77,9 @@
  */
 
 /// DSP Net Signals
-#define I_LOAD_1                g_controller_ctom.net_signals[0].f  // HRADC0
-#define I_LOAD_2                g_controller_ctom.net_signals[1].f  // HRADC1
-#define V_DCLINK                g_controller_ctom.net_signals[2].f  // HRADC2
+#define I_LOAD_1                g_controller_ctom.net_signals[0].f  // HRADC0 - HALL SENSOR
+#define I_LOAD_2                g_controller_ctom.net_signals[1].f  // HRADC1 - HALL SENSOR
+#define V_DCLINK                g_controller_ctom.net_signals[2].f  // HRADC2 - VERIVOLT
 
 #define I_LOAD_MEAN             g_controller_ctom.net_signals[3].f
 #define I_LOAD_ERROR            g_controller_ctom.net_signals[4].f
