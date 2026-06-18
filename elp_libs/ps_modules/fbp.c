@@ -725,7 +725,10 @@ static interrupt void isr_controller(void)
                             *g_controller_ctom.dsp_modules.dsp_error[i].pos -
                             *g_controller_ctom.dsp_modules.dsp_error[i].neg;
 
-                    run_dsp_pi_inline(&g_controller_ctom.dsp_modules.dsp_pi[i]);
+                    if(fabs(*g_controller_ctom.dsp_modules.dsp_error[i].error) < (MAX_REF[i] - MIN_REF[i]))
+                    {
+                    	run_dsp_pi_inline(&g_controller_ctom.dsp_modules.dsp_pi[i]);
+                    }
 
                     //SATURATE(g_controller_ctom.output_signals[i].f,
                     //         PWM_MAX_DUTY, PWM_MIN_DUTY);
