@@ -11,7 +11,7 @@
 /**
  * @file fbp.c
  * @brief FBP v4.0 module
- * 
+ *
  * Module for control of FBP v4.0 power supplies (Low-Power Power Supply).
  *
  * @author gabriel.brunheira
@@ -40,6 +40,7 @@
 #define MIN_DCLINK(id)          ANALOG_VARS_MIN[8+id]
 #define MAX_DCLINK(id)          ANALOG_VARS_MAX[8+id]
 #define MAX_TEMP(id)            ANALOG_VARS_MAX[12+id]
+#define MAX_OUTPUT_CHANGE(id)   ANALOG_VARS_MAX[16+id]
 
 /**
  * All power supplies defines
@@ -640,7 +641,7 @@ static interrupt void isr_init_controller(void)
 static interrupt void isr_controller(void)
 {
     static uint16_t i;
-    static float temp[4];
+    static float temp[4], temp_old[4];
 
     //SET_DEBUG_GPIO0;
     SET_DEBUG_GPIO1;
@@ -662,6 +663,11 @@ static interrupt void isr_controller(void)
 
     temp[3] *= HRADCs_Info.HRADC_boards[3].gain;
     temp[3] += HRADCs_Info.HRADC_boards[3].offset;
+
+    temp_old[0] = PS1_LOAD_CURRENT;
+    temp_old[1] = PS2_LOAD_CURRENT;
+    temp_old[2] = PS3_LOAD_CURRENT;
+    temp_old[3] = PS4_LOAD_CURRENT;
 
     PS1_LOAD_CURRENT = temp[0];
     PS2_LOAD_CURRENT = temp[1];
@@ -721,9 +727,13 @@ static interrupt void isr_controller(void)
 
                     //run_dsp_error(&g_controller_ctom.dsp_modules.dsp_error[i]);
 
-                    *g_controller_ctom.dsp_modules.dsp_error[i].error =
+                    // Update error only if current variation is within acceptable range
+                    if (fabs(temp[i] - temp_old[i]) <= MAX_OUTPUT_CHANGE(i))
+                    {
+                        *g_controller_ctom.dsp_modules.dsp_error[i].error =
                             *g_controller_ctom.dsp_modules.dsp_error[i].pos -
                             *g_controller_ctom.dsp_modules.dsp_error[i].neg;
+                    }
 
                     if(fabs(*g_controller_ctom.dsp_modules.dsp_error[i].error) < (MAX_REF[i] - MIN_REF[i]))
                     {
