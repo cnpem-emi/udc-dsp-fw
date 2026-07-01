@@ -847,31 +847,31 @@ static void turn_on(uint16_t dummy)
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     #endif
     {
-        if(V_DCLINK > MAX_V_DCLINK_TURN_ON)
+        /*if(V_DCLINK > MAX_V_DCLINK_TURN_ON)
         {
             BYPASS_HARD_INTERLOCK_DEBOUNCE(0, DCLink_Overvoltage);
             set_hard_interlock(0, DCLink_Overvoltage);
-        }
+        }*/
 
         #ifdef USE_ITLK
         else
         {
         #endif
 
-            if(PIN_STATUS_CONTACTOR_K2)
+            /*if(PIN_STATUS_CONTACTOR_K2)
             {
                 BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Welded_Contactor_K2_Fault);
                 set_hard_interlock(0, Welded_Contactor_K2_Fault);
-            }
+            }*/
 
             PIN_CLOSE_CONTACTOR_K1;
             DELAY_US(TIMEOUT_CONTACTOR_K1_CLOSED_MS*1000);
 
-            if(!PIN_STATUS_CONTACTOR_K1)
+            /*if(!PIN_STATUS_CONTACTOR_K1)
             {
                 BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Opened_Contactor_K1_Fault);
                 set_hard_interlock(0, Opened_Contactor_K1_Fault);
-            }
+            }*/
 
             #ifdef USE_ITLK
             else
@@ -923,7 +923,7 @@ static void reset_interlocks(uint16_t dummy)
     g_ipc_ctom.ps_module[0].ps_soft_interlock = 0;
     g_ipc_ctom.ps_module[0].ps_alarms = 0;
 
-    if(g_ipc_ctom.ps_module[0].ps_status.bit.state < Initializing)
+    /*if(g_ipc_ctom.ps_module[0].ps_status.bit.state < Initializing)
     {
     	init_control_framework(&g_controller_ctom);
     	init_control_framework(&g_controller_mtoc);
@@ -937,7 +937,7 @@ static void reset_interlocks(uint16_t dummy)
         }
 
         g_ipc_ctom.ps_module[0].ps_status.bit.state = Off;
-    }
+    }*/
 }
 
 /**
@@ -957,39 +957,39 @@ static inline void check_interlocks(void)
         set_soft_interlock(0, DCCT_High_Difference);
     }
 
-    if(V_DCLINK > MAX_V_DCLINK)
+    /*if(V_DCLINK > MAX_V_DCLINK)
     {
         set_hard_interlock(0, DCLink_Overvoltage);
-    }
+    }*/
 
-    if(!PIN_STATUS_DCCT_1_STATUS)
+    /*if(!PIN_STATUS_DCCT_1_STATUS)
     {
         set_soft_interlock(0, DCCT_1_Fault);
-    }
+    }*/
 
-    if(NUM_DCCTs && !PIN_STATUS_DCCT_2_STATUS)
+    /*if(NUM_DCCTs && !PIN_STATUS_DCCT_2_STATUS)
     {
         set_soft_interlock(0, DCCT_2_Fault);
-    }
+    }*/
 
     if(PIN_STATUS_DCCT_1_ACTIVE)
     {
-    	if(fabs(I_LOAD_1) < MIN_I_ACTIVE_DCCT)
+    	/*if(fabs(I_LOAD_1) < MIN_I_ACTIVE_DCCT)
     	{
     		set_soft_interlock(0, Load_Feedback_1_Fault);
-    	}
+    	}*/
     }
     else
     {
-    	if(fabs(I_LOAD_1) > MAX_I_IDLE_DCCT)
+    	/*if(fabs(I_LOAD_1) > MAX_I_IDLE_DCCT)
     	{
     		set_soft_interlock(0, Load_Feedback_1_Fault);
-    	}
+    	}*/
     }
 
     if(NUM_DCCTs)
     {
-    	if(PIN_STATUS_DCCT_2_ACTIVE)
+    	/*if(PIN_STATUS_DCCT_2_ACTIVE)
     	{
     		if(fabs(I_LOAD_2) < MIN_I_ACTIVE_DCCT)
     		{
@@ -1002,17 +1002,17 @@ static inline void check_interlocks(void)
     		{
     			set_soft_interlock(0, Load_Feedback_2_Fault);
     		}
-    	}
+    	}*/
     }
 
-    if(!PIN_STATUS_EXTERNAL_INTERLOCK)
+    /*if(!PIN_STATUS_EXTERNAL_INTERLOCK)
     {
     	set_hard_interlock(0, External_Itlk);
-    }
+    }*/
 
     DINT;
 
-    if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
+    /*if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     {
         if(PIN_STATUS_CONTACTOR_K1)
         {
@@ -1023,19 +1023,19 @@ static inline void check_interlocks(void)
         {
             set_hard_interlock(0, Welded_Contactor_K2_Fault);
         }
-    }
+    }*/
 
     else
     {
-        if(!PIN_STATUS_CONTACTOR_K1)
+        /*if(!PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Opened_Contactor_K1_Fault);
-        }
+        }*/
 
-        if(!PIN_STATUS_CONTACTOR_K2 && !PIN_STATUS_CONTACTOR_K1)
+        /*if(!PIN_STATUS_CONTACTOR_K2 && !PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Opened_Contactor_K2_Fault);
-        }
+        }*/
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
@@ -1058,7 +1058,17 @@ static inline void check_interlocks(void)
         {
             if(V_DCLINK < MIN_V_DCLINK)
             {
-                set_hard_interlock(0, DCLink_Undervoltage);
+                /*set_hard_interlock(0, DCLink_Undervoltage);*/
+
+                // Enable PWM check if DC-Link Undervoltage
+                g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
+                enable_pwm_output(0);
+                enable_pwm_output(1);
+                enable_pwm_output(2);
+                enable_pwm_output(3);
+                enable_pwm_output(4);
+                enable_pwm_output(5);
+                enable_pwm_output(6);
             }
         }
     }
