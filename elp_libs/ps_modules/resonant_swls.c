@@ -217,7 +217,7 @@ static inline void check_interlocks(void);
 /**
  * Main function for this power supply module
  */
-void main_resonant_weg(void)
+void main_resonant_swls(void)
 {
     init_controller();
     init_peripherals_drivers();
@@ -944,12 +944,12 @@ static void reset_interlocks(uint16_t dummy)
  * Check interlocks of this specific power supply topology
  */
 
- /*
+ 
 static inline void check_interlocks(void)
 {
     //SET_DEBUG_GPIO1;
 
-    if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
+    /*if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
     {
         set_hard_interlock(0, Load_Overcurrent);
     }
@@ -1010,11 +1010,11 @@ static inline void check_interlocks(void)
     if(!PIN_STATUS_EXTERNAL_INTERLOCK)
     {
     	set_hard_interlock(0, External_Itlk);
-    }
+    }*/
 
     DINT;
 
-    if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
+    /*if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     {
         if(PIN_STATUS_CONTACTOR_K1)
         {
@@ -1070,14 +1070,12 @@ static inline void check_interlocks(void)
 
     run_interlocks_debouncing(0);
 
+    /*
     #ifdef USE_ITLK
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Interlock)
     #else
     if(g_ipc_ctom.ps_module[0].ps_hard_interlock || g_ipc_ctom.ps_module[0].ps_soft_interlock)
     #endif
-    {
-
-    }
-
+    */
     //CLEAR_DEBUG_GPIO1;
 }
