@@ -43,7 +43,7 @@
 #include "ps_modules/fap_4p.h"
 #include "ps_modules/fac_dcdc_ema.h"
 #include "ps_modules/fap_2p2s.h"
-#include "ps_modules/resonant_weg.h"
+#include "ps_modules/resonant_swls.h"
 #include "ps_modules/uninitialized.h"
 
 /**
@@ -212,9 +212,9 @@ void main(void)
                 break;
             }
 
-            case RESONANT_WEG:
+            case RESONANT_SWLS:
             {
-                main_resonant_weg();
+                main_resonant_swls();
                 break;
             }
 

@@ -9,7 +9,7 @@
  *****************************************************************************/
 
 /**
- * @file resonant_weg.h
+ * @file resonant_swls.h
  * @brief Resonant converter module for Superconducting Wing Generator (SWG)
  *
  * Module for control of resonant convert power supply designed for the
@@ -21,9 +21,9 @@
  *
  */
 
-#ifndef RESONANT_WEG_H_
-#define RESONANT_WEG_H_
+#ifndef RESONANT_SWLS_H_
+#define RESONANT_SWLS_H_
 
-extern void main_resonant_weg(void);
+extern void main_resonant_swls(void);
 
-#endif /* RESONANT_WEG_H_ */
+#endif /* RESONANT_SWLS_H_ */
