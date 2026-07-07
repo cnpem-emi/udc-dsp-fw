@@ -1042,39 +1042,45 @@ static inline void check_interlocks(void)
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            if(V_DCLINK > MIN_V_DCLINK)
-            {
+            /*if(V_DCLINK > MIN_V_DCLINK)
+            {*/
                 // After checking all the interlocks, the pwms may be enable
-                g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
-                enable_pwm_output(0);
-                enable_pwm_output(1);
-                enable_pwm_output(2);
-                enable_pwm_output(3);
-                enable_pwm_output(4);
-                enable_pwm_output(5);
-                enable_pwm_output(6);
-            }
+            g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
+            enable_pwm_output(0);
+            enable_pwm_output(1);
+            enable_pwm_output(2);
+            enable_pwm_output(3);
+            enable_pwm_output(4);
+            enable_pwm_output(5);
+            enable_pwm_output(6);
+            /*}*/
         }
 
         else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
         /// Power supply ON
         {
-            if(V_DCLINK < MIN_V_DCLINK)
+             g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
+            enable_pwm_output(0);
+            enable_pwm_output(1);
+            enable_pwm_output(2);
+            enable_pwm_output(3);
+            enable_pwm_output(4);
+            enable_pwm_output(5);
+            enable_pwm_output(6);
+            /*if(V_DCLINK < MIN_V_DCLINK)
             {
                 set_hard_interlock(0, DCLink_Undervoltage);
-            }
+            }*/
         }
     }
 
     EINT;
     
     run_interlocks_debouncing(0);
-    
+    /*
     #ifdef USE_ITLK
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Interlock)
     #else
     if(g_ipc_ctom.ps_module[0].ps_hard_interlock || g_ipc_ctom.ps_module[0].ps_soft_interlock)
-    #endif
-    
-    //CLEAR_DEBUG_GPIO1;
+    #endif*/
 }
