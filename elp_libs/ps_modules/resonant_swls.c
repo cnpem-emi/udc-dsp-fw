@@ -1015,9 +1015,9 @@ static inline void check_interlocks(void)
 
     DINT;
 
-    /*if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
+    if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     {
-        if(PIN_STATUS_CONTACTOR_K1)
+        /*if(PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Welded_Contactor_K1_Fault);
         }
@@ -1025,8 +1025,8 @@ static inline void check_interlocks(void)
         if(PIN_STATUS_CONTACTOR_K2)
         {
             set_hard_interlock(0, Welded_Contactor_K2_Fault);
-        }
-    }*/
+        }*/
+    }
 
     else
     {
@@ -1059,32 +1059,22 @@ static inline void check_interlocks(void)
         else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
         /// Power supply ON
         {
-            /*if(V_DCLINK < MIN_V_DCLINK)
+            if(V_DCLINK < MIN_V_DCLINK)
             {
                 set_hard_interlock(0, DCLink_Undervoltage);
-            }*/
-            // Set PWM for Testing
-                g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
-                enable_pwm_output(0);
-                enable_pwm_output(1);
-                enable_pwm_output(2);
-                enable_pwm_output(3);
-                enable_pwm_output(4);
-                enable_pwm_output(5);
-                enable_pwm_output(6);
+            }
         }
     }
 
     EINT;
-
+    
     run_interlocks_debouncing(0);
-
-    /*
+    
     #ifdef USE_ITLK
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Interlock)
     #else
     if(g_ipc_ctom.ps_module[0].ps_hard_interlock || g_ipc_ctom.ps_module[0].ps_soft_interlock)
     #endif
-    */
+    
     //CLEAR_DEBUG_GPIO1;
 }
