@@ -127,7 +127,11 @@
 /// PWM modulators
 #define PWM_MODULATOR_1                 g_pwm_modules.pwm_regs[0]
 #define PWM_MODULATOR_2                 g_pwm_modules.pwm_regs[1]
-#define PWM_ISR_CONTROLLER              g_pwm_modules.pwm_regs[2]
+#define PWM_MODULATOR_3                 g_pwm_modules.pwm_regs[2]
+#define PWM_MODULATOR_4                 g_pwm_modules.pwm_regs[3]
+#define PWM_MODULATOR_5                 g_pwm_modules.pwm_regs[4]
+#define PWM_MODULATOR_6                 g_pwm_modules.pwm_regs[5]
+#define PWM_ISR_CONTROLLER              g_pwm_modules.pwm_regs[6]
 
 /// Scope
 #define SCOPE                           SCOPE_CTOM[0]
@@ -349,15 +353,12 @@ static void init_peripherals_drivers(void)
     // PWM_MODULATOR_5->TBCTL2.bit.PRDLDSYNC = 0x04;
     // PWM_MODULATOR_6->TBCTL2.bit.PRDLDSYNC = 0x05;
 
-    // Necessário para os demais ? --- QUESTION?
-
-
     // Changing from PWM to FSM
     FREQ_MODULATED = PWM_FREQ;
 
     /// PWM module for ISR controller
     init_pwm_module(PWM_ISR_CONTROLLER, ISR_CONTROL_FREQ, 0, PWM_Sync_Master, 0,
-                    PWM_ChB_Independent, PWM_DEADde_TIME);
+                    PWM_ChB_Independent, PWM_DEAD_TIME);
     set_pwm_duty_chA(PWM_ISR_CONTROLLER, 0.5);
 
     InitEPwm1Gpio();
@@ -1055,15 +1056,23 @@ static inline void check_interlocks(void)
             }
         }
 
-        /*else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
+        else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
         /// Power supply ON
         {
-            if(V_DCLINK < MIN_V_DCLINK)
+            /*if(V_DCLINK < MIN_V_DCLINK)
             {
                 set_hard_interlock(0, DCLink_Undervoltage);
-            }
+            }*/
+            // Set PWM for Testing
+                g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
+                enable_pwm_output(0);
+                enable_pwm_output(1);
+                enable_pwm_output(2);
+                enable_pwm_output(3);
+                enable_pwm_output(4);
+                enable_pwm_output(5);
+                enable_pwm_output(6);
         }
-        */
     }
 
     EINT;
