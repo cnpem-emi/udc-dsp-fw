@@ -347,11 +347,11 @@ static void init_peripherals_drivers(void)
     PWM_MODULATOR_6->TBCTL.bit.PRDLD = TB_SHADOW;
 
     // This setting allows large frequency steps to happen without error
-    // PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x01;
-    // PWM_MODULATOR_3->TBCTL2.bit.PRDLDSYNC = 0x02;
-    // PWM_MODULATOR_4->TBCTL2.bit.PRDLDSYNC = 0x03;
-    // PWM_MODULATOR_5->TBCTL2.bit.PRDLDSYNC = 0x04;
-    // PWM_MODULATOR_6->TBCTL2.bit.PRDLDSYNC = 0x05;
+    PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x01;
+    PWM_MODULATOR_3->TBCTL2.bit.PRDLDSYNC = 0x02;
+    PWM_MODULATOR_4->TBCTL2.bit.PRDLDSYNC = 0x03;
+    PWM_MODULATOR_5->TBCTL2.bit.PRDLDSYNC = 0x04;
+    PWM_MODULATOR_6->TBCTL2.bit.PRDLDSYNC = 0x05;
 
     // Changing from PWM to FSM
     FREQ_MODULATED = PWM_FREQ;
@@ -591,7 +591,8 @@ static void disable_controller()
 static interrupt void isr_init_controller(void)
 {
     EALLOW;
-    PieVectTable.EPWM3_INT = &isr_controller;
+    //PieVectTable.EPWM3_INT = &isr_controller;
+    PieVectTable.EPWM7_INT = &isr_controller;
     EDIS;
 
     PWM_ISR_CONTROLLER->ETSEL.bit.INTSEL = ET_CTR_ZERO;
@@ -609,7 +610,7 @@ static interrupt void isr_init_controller(void)
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;
 
     /// Clear interrupt flag for PWM interrupts group
-    PieCtrlRegs.PIEACK.all |= M_INT3;
+    PieCtrlRegs.PIEACK.all |= M_INT7;
 }
 
 /**
@@ -780,7 +781,7 @@ static interrupt void isr_controller(void)
     //PWM_MODULATOR_1->ETCLR.bit.INT = 1;
     //PWM_MODULATOR_2->ETCLR.bit.INT = 1;
     PWM_ISR_CONTROLLER->ETCLR.bit.INT = 1;
-    PieCtrlRegs.PIEACK.all |= M_INT3;
+    PieCtrlRegs.PIEACK.all |= M_INT7;
 
     CLEAR_DEBUG_GPIO1;
 }
@@ -808,7 +809,7 @@ static void init_interruptions(void)
     enable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     IER |= M_INT1;
-    IER |= M_INT3;
+    IER |= M_INT7;
     IER |= M_INT11;
 
     /// Enable global interrupts (EINT)
@@ -842,7 +843,7 @@ static void term_interruptions(void)
     disable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     /// Clear flags
-    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT11;
+    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT7 | M_INT11;
 }
 
 /**
@@ -1052,6 +1053,14 @@ static inline void check_interlocks(void)
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
+            enable_pwm_output(0);
+            enable_pwm_output(1);
+            enable_pwm_output(2);
+            enable_pwm_output(3);
+            enable_pwm_output(4);
+            enable_pwm_output(5);
+            enable_pwm_output(6);
+
             if(V_DCLINK > MIN_V_DCLINK)
             {
             // After checking all the interlocks, the pwms may be enable
