@@ -80,9 +80,9 @@
  */
 
 /// DSP Net Signals
-#define I_LOAD_1                g_controller_ctom.net_signals[0].f  // HRADC0 - HALL SENSOR
-#define I_LOAD_2                g_controller_ctom.net_signals[1].f  // HRADC1 - HALL SENSOR
-#define V_DCLINK                g_controller_ctom.net_signals[2].f  // HRADC2 - VERIVOLT
+#define I_LOAD_1                g_controller_ctom.net_signals[0].f
+#define I_LOAD_2                g_controller_ctom.net_signals[1].f
+#define V_DCLINK                g_controller_ctom.net_signals[2].f
 
 #define I_LOAD_MEAN             g_controller_ctom.net_signals[3].f
 #define I_LOAD_ERROR            g_controller_ctom.net_signals[4].f
@@ -798,8 +798,13 @@ static void init_interruptions(void)
     //PieCtrlRegs.PIEIER3.bit.INTx3 = 1;
     PieCtrlRegs.PIEIER7.bit.INTx7 = 1;
 
-    //enable_pwm_interrupt(PWM_MODULATOR_1);
-    //enable_pwm_interrupt(PWM_MODULATOR_2);
+    enable_pwm_interrupt(PWM_MODULATOR_1);
+    enable_pwm_interrupt(PWM_MODULATOR_2);
+    enable_pwm_interrupt(PWM_MODULATOR_3);
+    enable_pwm_interrupt(PWM_MODULATOR_4);
+    enable_pwm_interrupt(PWM_MODULATOR_5);
+    enable_pwm_interrupt(PWM_MODULATOR_6);
+
     enable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     IER |= M_INT1;
@@ -826,8 +831,13 @@ static void term_interruptions(void)
     //PieCtrlRegs.PIEIER3.bit.INTx3 = 0;  /// ePWM3
     PieCtrlRegs.PIEIER7.bit.INTx7 = 0;  /// ePWM7
 
-    //disable_pwm_interrupt(PWM_MODULATOR_1);
-    //disable_pwm_interrupt(PWM_MODULATOR_2);
+    disable_pwm_interrupt(PWM_MODULATOR_1);
+    disable_pwm_interrupt(PWM_MODULATOR_2);
+    disable_pwm_interrupt(PWM_MODULATOR_3);
+    disable_pwm_interrupt(PWM_MODULATOR_4);
+    disable_pwm_interrupt(PWM_MODULATOR_5);
+    disable_pwm_interrupt(PWM_MODULATOR_6);
+
     // All PWMs are enable
     disable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
@@ -848,31 +858,31 @@ static void turn_on(uint16_t dummy)
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     #endif
     {
-        /*if(V_DCLINK > MAX_V_DCLINK_TURN_ON)
+        if(V_DCLINK > MAX_V_DCLINK_TURN_ON)
         {
             BYPASS_HARD_INTERLOCK_DEBOUNCE(0, DCLink_Overvoltage);
             set_hard_interlock(0, DCLink_Overvoltage);
-        }*/
+        }
 
         #ifdef USE_ITLK
         else
         {
         #endif
 
-            /*if(PIN_STATUS_CONTACTOR_K2)
+            if(PIN_STATUS_CONTACTOR_K2)
             {
                 BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Welded_Contactor_K2_Fault);
                 set_hard_interlock(0, Welded_Contactor_K2_Fault);
-            }*/
+            }
 
             PIN_CLOSE_CONTACTOR_K1;
             DELAY_US(TIMEOUT_CONTACTOR_K1_CLOSED_MS*1000);
 
-            /*if(!PIN_STATUS_CONTACTOR_K1)
+            if(!PIN_STATUS_CONTACTOR_K1)
             {
                 BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Opened_Contactor_K1_Fault);
                 set_hard_interlock(0, Opened_Contactor_K1_Fault);
-            }*/
+            }
 
             #ifdef USE_ITLK
             else
@@ -950,7 +960,7 @@ static inline void check_interlocks(void)
 {
     //SET_DEBUG_GPIO1;
 
-    /*if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
+    if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
     {
         set_hard_interlock(0, Load_Overcurrent);
     }
@@ -1011,13 +1021,13 @@ static inline void check_interlocks(void)
     if(!PIN_STATUS_EXTERNAL_INTERLOCK)
     {
     	set_hard_interlock(0, External_Itlk);
-    }*/
+    }
 
     DINT;
 
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     {
-        /*if(PIN_STATUS_CONTACTOR_K1)
+        if(PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Welded_Contactor_K1_Fault);
         }
@@ -1025,26 +1035,26 @@ static inline void check_interlocks(void)
         if(PIN_STATUS_CONTACTOR_K2)
         {
             set_hard_interlock(0, Welded_Contactor_K2_Fault);
-        }*/
+        }
     }
 
     else
     {
-        /*if(!PIN_STATUS_CONTACTOR_K1)
+        if(!PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Opened_Contactor_K1_Fault);
-        }*/
+        }
 
-        /*if(!PIN_STATUS_CONTACTOR_K2 && !PIN_STATUS_CONTACTOR_K1)
+        if(!PIN_STATUS_CONTACTOR_K2 && !PIN_STATUS_CONTACTOR_K1)
         {
             set_hard_interlock(0, Opened_Contactor_K2_Fault);
-        }*/
+        }
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            /*if(V_DCLINK > MIN_V_DCLINK)
-            {*/
-                // After checking all the interlocks, the pwms may be enable
+            if(V_DCLINK > MIN_V_DCLINK)
+            {
+            // After checking all the interlocks, the pwms may be enable
             g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
             enable_pwm_output(0);
             enable_pwm_output(1);
@@ -1053,24 +1063,16 @@ static inline void check_interlocks(void)
             enable_pwm_output(4);
             enable_pwm_output(5);
             enable_pwm_output(6);
-            /*}*/
+            }
         }
 
         else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
         /// Power supply ON
         {
-             g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
-            enable_pwm_output(0);
-            enable_pwm_output(1);
-            enable_pwm_output(2);
-            enable_pwm_output(3);
-            enable_pwm_output(4);
-            enable_pwm_output(5);
-            enable_pwm_output(6);
-            /*if(V_DCLINK < MIN_V_DCLINK)
+            if(V_DCLINK < MIN_V_DCLINK)
             {
                 set_hard_interlock(0, DCLink_Undervoltage);
-            }*/
+            }
         }
     }
 
