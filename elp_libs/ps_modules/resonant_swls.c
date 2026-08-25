@@ -80,9 +80,9 @@
  */
 
 /// DSP Net Signals
-#define I_LOAD_1                g_controller_ctom.net_signals[0].f
-#define I_LOAD_2                g_controller_ctom.net_signals[1].f
-#define V_DCLINK                g_controller_ctom.net_signals[2].f
+#define I_LOAD_1                g_controller_ctom.net_signals[0].f  // HRADC0
+#define I_LOAD_2                g_controller_ctom.net_signals[1].f  // HRADC1
+#define V_DCLINK                g_controller_ctom.net_signals[2].f  // HRADC2
 
 #define I_LOAD_MEAN             g_controller_ctom.net_signals[3].f
 #define I_LOAD_ERROR            g_controller_ctom.net_signals[4].f
@@ -129,9 +129,7 @@
 #define PWM_MODULATOR_2                 g_pwm_modules.pwm_regs[1]
 #define PWM_MODULATOR_3                 g_pwm_modules.pwm_regs[2]
 #define PWM_MODULATOR_4                 g_pwm_modules.pwm_regs[3]
-#define PWM_MODULATOR_5                 g_pwm_modules.pwm_regs[4]
-#define PWM_MODULATOR_6                 g_pwm_modules.pwm_regs[5]
-#define PWM_ISR_CONTROLLER              g_pwm_modules.pwm_regs[6]
+#define PWM_ISR_CONTROLLER              g_pwm_modules.pwm_regs[4]
 
 /// Scope
 #define SCOPE                           SCOPE_CTOM[0]
@@ -281,15 +279,13 @@ static void init_peripherals_drivers(void)
     Config_HRADC_SoC(HRADC_FREQ_SAMP);
 
     /// Initialization of PWM modules
-    g_pwm_modules.num_modules = 7;
+    g_pwm_modules.num_modules = 5;
 
     PWM_MODULATOR_1 = &EPwm1Regs;           // Master PWM1 - Main PWM
     PWM_MODULATOR_2 = &EPwm2Regs;           // Slave to PWM1 - Main PWM
-    PWM_MODULATOR_3 = &EPwm3Regs;           // Slave to PWM1 - Clamp PWM
-    PWM_MODULATOR_4 = &EPwm4Regs;           // Slave to PWM1 - Clamp PWM
-    PWM_MODULATOR_5 = &EPwm5Regs;           // Slave to PWM1 - Active Rectifier PWM
-    PWM_MODULATOR_6 = &EPwm6Regs;           // Slave to PWM1 - Active Rectifier PWM
-    PWM_ISR_CONTROLLER = &EPwm7Regs;        // Control PWM
+    PWM_MODULATOR_3 = &EPwm3Regs;           // Slave to PWM1 - Active Rectifier PWM
+    PWM_MODULATOR_4 = &EPwm4Regs;           // Slave to PWM1 - Active Rectifier PWM
+    PWM_ISR_CONTROLLER = &EPwm5Regs;        // Control PWM
 
     disable_pwm_outputs();
     disable_pwm_tbclk();
@@ -297,11 +293,8 @@ static void init_peripherals_drivers(void)
 
     /// PWM initialization
 
-    // init_pwm_module(PWM module, freq, specified primary module, synchronization, 
-    // phase between modules[º], channel B configuration [`PWM_ChB_Independent`,
-    // PWM_ChB_Complementary`], dead-time between channel A and B [ns])
+    // MAIN SWITCHES + CLAMP SWITCHES
 
-    // MAIN SWITCHES
     init_pwm_module(PWM_MODULATOR_1, PWM_FREQ, 0, PWM_Sync_Master, 0,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
     init_pwm_module(PWM_MODULATOR_2, PWM_FREQ, 1, PWM_Sync_Slave, 180,
@@ -310,23 +303,14 @@ static void init_peripherals_drivers(void)
     set_pwm_deadtime_edge(PWM_MODULATOR_1, PWM_DEAD_TIME_RISING, PWM_DEAD_TIME_FALLING);
     set_pwm_deadtime_edge(PWM_MODULATOR_2, PWM_DEAD_TIME_RISING, PWM_DEAD_TIME_FALLING);
 
-    // CLAMP SWITCHES
+    // ACTIVE RECTTIFIER SWITCHES
     init_pwm_module(PWM_MODULATOR_3, PWM_FREQ, 0, PWM_Sync_Slave, 0,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
     init_pwm_module(PWM_MODULATOR_4, PWM_FREQ, 3, PWM_Sync_Slave, 180,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
 
-    set_pwm_deadtime_edge(PWM_MODULATOR_3, PWM_DEAD_TIME_RISING, PWM_DEAD_TIME_FALLING);
-    set_pwm_deadtime_edge(PWM_MODULATOR_4, PWM_DEAD_TIME_RISING, PWM_DEAD_TIME_FALLING);
-
-    // ACTIVE RECTTIFIER SWITCHES
-    init_pwm_module(PWM_MODULATOR_5, PWM_FREQ, 0, PWM_Sync_Slave, 0,
-                    PWM_ChB_Complementary, PWM_DEAD_TIME);
-    init_pwm_module(PWM_MODULATOR_6, PWM_FREQ, 5, PWM_Sync_Slave, 180,
-                    PWM_ChB_Complementary, PWM_DEAD_TIME);
-
-    set_pwm_deadtime_edge(PWM_MODULATOR_5, PWM_DEAD_TIME_RISING_ACT_RCT, PWM_DEAD_TIME_FALLING_ACT_RCT);
-    set_pwm_deadtime_edge(PWM_MODULATOR_6, PWM_DEAD_TIME_RISING_ACT_RCT, PWM_DEAD_TIME_FALLING_ACT_RCT);
+    set_pwm_deadtime_edge(PWM_MODULATOR_3, PWM_DEAD_TIME_RISING_ACT_RCT, PWM_DEAD_TIME_FALLING_ACT_RCT);
+    set_pwm_deadtime_edge(PWM_MODULATOR_4, PWM_DEAD_TIME_RISING_ACT_RCT, PWM_DEAD_TIME_FALLING_ACT_RCT);
 
     /// Fix turn-on time
     duty_cycle = (((T_ON_US*1e-6) + (PWM_DEAD_TIME_RISING*1e-9))*PWM_FREQ);
@@ -335,23 +319,17 @@ static void init_peripherals_drivers(void)
     set_pwm_duty_chA(PWM_MODULATOR_2, duty_cycle);
     set_pwm_duty_chA(PWM_MODULATOR_3, duty_cycle);
     set_pwm_duty_chA(PWM_MODULATOR_4, duty_cycle);
-    set_pwm_duty_chA(PWM_MODULATOR_5, duty_cycle);
-    set_pwm_duty_chA(PWM_MODULATOR_6, duty_cycle);
 
     /// Set time-base period register on shadow mode (update on next cycle)
     PWM_MODULATOR_1->TBCTL.bit.PRDLD = TB_SHADOW;
     PWM_MODULATOR_2->TBCTL.bit.PRDLD = TB_SHADOW;
     PWM_MODULATOR_3->TBCTL.bit.PRDLD = TB_SHADOW;
     PWM_MODULATOR_4->TBCTL.bit.PRDLD = TB_SHADOW;
-    PWM_MODULATOR_5->TBCTL.bit.PRDLD = TB_SHADOW;
-    PWM_MODULATOR_6->TBCTL.bit.PRDLD = TB_SHADOW;
 
     // This setting allows large frequency steps to happen without error
     PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x01;
     PWM_MODULATOR_3->TBCTL2.bit.PRDLDSYNC = 0x02;
     PWM_MODULATOR_4->TBCTL2.bit.PRDLDSYNC = 0x03;
-    PWM_MODULATOR_5->TBCTL2.bit.PRDLDSYNC = 0x04;
-    PWM_MODULATOR_6->TBCTL2.bit.PRDLDSYNC = 0x05;
 
     // Changing from PWM to FSM
     FREQ_MODULATED = PWM_FREQ;
@@ -365,8 +343,6 @@ static void init_peripherals_drivers(void)
     InitEPwm2Gpio();
     InitEPwm3Gpio();
     InitEPwm4Gpio();
-    InitEPwm5Gpio();
-    InitEPwm6Gpio();
 
     /// Initialization of timers
     InitCpuTimers();
@@ -524,17 +500,11 @@ static void reset_controller(void)
     set_pwm_freq(PWM_MODULATOR_3, PWM_FREQ);
     set_pwm_freq(PWM_MODULATOR_4, PWM_FREQ);
 
-    set_pwm_freq(PWM_MODULATOR_5, PWM_FREQ);
-    set_pwm_freq(PWM_MODULATOR_6, PWM_FREQ);
-
     cfg_pwm_sync(PWM_MODULATOR_1, PWM_Sync_Master, 0.0);
     cfg_pwm_sync(PWM_MODULATOR_2, PWM_Sync_Slave, 180.0);
 
     cfg_pwm_sync(PWM_MODULATOR_3, PWM_Sync_Slave, 0.0);
     cfg_pwm_sync(PWM_MODULATOR_4, PWM_Sync_Slave, 180.0);
-
-    cfg_pwm_sync(PWM_MODULATOR_5, PWM_Sync_Slave, 0.0);
-    cfg_pwm_sync(PWM_MODULATOR_6, PWM_Sync_Slave, 180.0);
 
     g_ipc_ctom.ps_module[0].ps_status.bit.openloop = LOOP_STATE;
 
@@ -591,8 +561,7 @@ static void disable_controller()
 static interrupt void isr_init_controller(void)
 {
     EALLOW;
-    //PieVectTable.EPWM3_INT = &isr_controller;
-    PieVectTable.EPWM7_INT = &isr_controller;
+    PieVectTable.EPWM5_INT = &isr_controller;
     EDIS;
 
     PWM_ISR_CONTROLLER->ETSEL.bit.INTSEL = ET_CTR_ZERO;
@@ -610,7 +579,7 @@ static interrupt void isr_init_controller(void)
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;
 
     /// Clear interrupt flag for PWM interrupts group
-    PieCtrlRegs.PIEACK.all |= M_INT7;
+    PieCtrlRegs.PIEACK.all |= M_INT3;
 }
 
 /**
@@ -732,15 +701,11 @@ static interrupt void isr_controller(void)
         set_pwm_freq(PWM_MODULATOR_2, FREQ_MODULATED_FF);
         set_pwm_freq(PWM_MODULATOR_3, FREQ_MODULATED_FF);
         set_pwm_freq(PWM_MODULATOR_4, FREQ_MODULATED_FF);
-        set_pwm_freq(PWM_MODULATOR_5, FREQ_MODULATED_FF);
-        set_pwm_freq(PWM_MODULATOR_6, FREQ_MODULATED_FF);
 
         cfg_pwm_sync(PWM_MODULATOR_1, PWM_Sync_Master, 0.0);
         cfg_pwm_sync(PWM_MODULATOR_2, PWM_Sync_Slave, 180.0);
         cfg_pwm_sync(PWM_MODULATOR_3, PWM_Sync_Slave, 0.0);
         cfg_pwm_sync(PWM_MODULATOR_4, PWM_Sync_Slave, 180.0);
-        cfg_pwm_sync(PWM_MODULATOR_5, PWM_Sync_Slave, 0.0);
-        cfg_pwm_sync(PWM_MODULATOR_6, PWM_Sync_Slave, 180.0);
     }
 
     RUN_SCOPE(SCOPE);
@@ -778,10 +743,13 @@ static interrupt void isr_controller(void)
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;
 
     /// Clear interrupt flags for PWM interrupts
-    //PWM_MODULATOR_1->ETCLR.bit.INT = 1;
-    //PWM_MODULATOR_2->ETCLR.bit.INT = 1;
+    // PWM_MODULATOR_1->ETCLR.bit.INT = 1;
+    // PWM_MODULATOR_2->ETCLR.bit.INT = 1;
+    // PWM_MODULATOR_3->ETCLR.bit.INT = 1;
+    // PWM_MODULATOR_4->ETCLR.bit.INT = 1;
+
     PWM_ISR_CONTROLLER->ETCLR.bit.INT = 1;
-    PieCtrlRegs.PIEACK.all |= M_INT7;
+    PieCtrlRegs.PIEACK.all |= M_INT3;
 
     CLEAR_DEBUG_GPIO1;
 }
@@ -792,24 +760,20 @@ static interrupt void isr_controller(void)
 static void init_interruptions(void)
 {
     EALLOW;
-    //PieVectTable.EPWM3_INT =  &isr_init_controller;
-    PieVectTable.EPWM7_INT =  &isr_init_controller;
+    PieVectTable.EPWM5_INT =  &isr_init_controller;
     EDIS;
 
-    //PieCtrlRegs.PIEIER3.bit.INTx3 = 1;
-    PieCtrlRegs.PIEIER7.bit.INTx7 = 1;
+    PieCtrlRegs.PIEIER3.bit.INTx5 = 1; ////                                                 AQUI
 
     enable_pwm_interrupt(PWM_MODULATOR_1);
     enable_pwm_interrupt(PWM_MODULATOR_2);
     enable_pwm_interrupt(PWM_MODULATOR_3);
     enable_pwm_interrupt(PWM_MODULATOR_4);
-    enable_pwm_interrupt(PWM_MODULATOR_5);
-    enable_pwm_interrupt(PWM_MODULATOR_6);
 
     enable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     IER |= M_INT1;
-    IER |= M_INT7;
+    IER |= M_INT3;
     IER |= M_INT11;
 
     /// Enable global interrupts (EINT)
@@ -828,22 +792,18 @@ static void term_interruptions(void)
 
     /// Clear enables
     IER = 0;
-    //PieCtrlRegs.PIEIER3.bit.INTx1 = 0;  /// ePWM1
-    //PieCtrlRegs.PIEIER3.bit.INTx3 = 0;  /// ePWM3
-    PieCtrlRegs.PIEIER7.bit.INTx7 = 0;  /// ePWM7
+    PieCtrlRegs.PIEIER3.bit.INTx5 = 0;  ///                                                     AQUI ePWM5
 
     disable_pwm_interrupt(PWM_MODULATOR_1);
     disable_pwm_interrupt(PWM_MODULATOR_2);
     disable_pwm_interrupt(PWM_MODULATOR_3);
     disable_pwm_interrupt(PWM_MODULATOR_4);
-    disable_pwm_interrupt(PWM_MODULATOR_5);
-    disable_pwm_interrupt(PWM_MODULATOR_6);
 
     // All PWMs are enable
     disable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     /// Clear flags
-    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT7 | M_INT11;
+    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT11;
 }
 
 /**
@@ -910,8 +870,6 @@ static void turn_off(uint16_t dummy)
     disable_pwm_output(2);
     disable_pwm_output(3);
     disable_pwm_output(4);
-    disable_pwm_output(5);
-    disable_pwm_output(6);
 
     PIN_OPEN_CONTACTOR_K1;
     DELAY_US(TIMEOUT_CONTACTOR_K1_OPENED_MS*1000);
@@ -976,7 +934,7 @@ static inline void check_interlocks(void)
         set_hard_interlock(0, DCLink_Overvoltage);
     }
 
-    if(!PIN_STATUS_DCCT_1_STATUS)
+    /*if(!PIN_STATUS_DCCT_1_STATUS)
     {
         set_soft_interlock(0, DCCT_1_Fault);
     }
@@ -984,7 +942,7 @@ static inline void check_interlocks(void)
     if(NUM_DCCTs && !PIN_STATUS_DCCT_2_STATUS)
     {
         set_soft_interlock(0, DCCT_2_Fault);
-    }
+    }*/
 
     if(PIN_STATUS_DCCT_1_ACTIVE)
     {
@@ -1058,8 +1016,6 @@ static inline void check_interlocks(void)
             enable_pwm_output(2);
             enable_pwm_output(3);
             enable_pwm_output(4);
-            enable_pwm_output(5);
-            enable_pwm_output(6);
 
             if(V_DCLINK > MIN_V_DCLINK)
             {
@@ -1070,8 +1026,6 @@ static inline void check_interlocks(void)
             enable_pwm_output(2);
             enable_pwm_output(3);
             enable_pwm_output(4);
-            enable_pwm_output(5);
-            enable_pwm_output(6);
             }
         }
 
@@ -1088,10 +1042,15 @@ static inline void check_interlocks(void)
     EINT;
     
     run_interlocks_debouncing(0);
-    /*
+
     #ifdef USE_ITLK
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Interlock)
     #else
     if(g_ipc_ctom.ps_module[0].ps_hard_interlock || g_ipc_ctom.ps_module[0].ps_soft_interlock)
-    #endif*/
+    #endif
+    {
+
+    }
+
+    //CLEAR_DEBUG_GPIO1;
 }
