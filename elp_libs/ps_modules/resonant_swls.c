@@ -1011,12 +1011,6 @@ static inline void check_interlocks(void)
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            enable_pwm_output(0);
-            enable_pwm_output(1);
-            enable_pwm_output(2);
-            enable_pwm_output(3);
-            enable_pwm_output(4);
-
             if(V_DCLINK > MIN_V_DCLINK)
             {
             // After checking all the interlocks, the pwms may be enable
@@ -1035,6 +1029,7 @@ static inline void check_interlocks(void)
             if(V_DCLINK < MIN_V_DCLINK)
             {
                 set_hard_interlock(0, DCLink_Undervoltage);
+                turn_off(0);
             }
         }
     }
