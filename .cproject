@@ -86,7 +86,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="elp_libs/ps_modules/fac_2p_dcdc_imas.c|elp_libs/ps_modules/fac_2p_acdc_imas.c|app/DP_framework|main_v3.c|F28M36x_ELP_DRS/shared_memory|main_v7.c|FLASH|app/shared_memory2|F28M36x_generic_wshared_C28_FLASH.cmd|app/IPC_modules|F28M36x_ELP_DRS/Regulators_modules|old|main_v2.c|main_v6.c|F28M36x_ELP_DRS/PWM_modules/PWM_modules_old.c|main_FBP_v2_0_1.c|app/PS_modules|F28M36x_generic_wshared_C28_RAM.cmd|main_v5.c|app|F28M36x_ELP_DRS/DP_framework/RefManager|main_HRADC_Debug.c|main_v4.c|SFO_TI_Build_V7_FPU.lib|main_v8.c|app/shared_memory/main_var.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="elp_libs/ps_modules/fap_4p.c|elp_libs/ps_modules/fbp.c|elp_libs/ps_modules/fap.c|elp_libs/ps_modules/fac_dcdc_ema.c|app/DP_framework|main_v3.c|F28M36x_ELP_DRS/shared_memory|main_v7.c|FLASH|app/shared_memory2|F28M36x_generic_wshared_C28_FLASH.cmd|app/IPC_modules|F28M36x_ELP_DRS/Regulators_modules|old|main_v2.c|main_v6.c|F28M36x_ELP_DRS/PWM_modules/PWM_modules_old.c|main_FBP_v2_0_1.c|app/PS_modules|F28M36x_generic_wshared_C28_RAM.cmd|main_v5.c|app|F28M36x_ELP_DRS/DP_framework/RefManager|main_HRADC_Debug.c|main_v4.c|SFO_TI_Build_V7_FPU.lib|main_v8.c|app/shared_memory/main_var.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
