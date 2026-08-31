@@ -16,20 +16,6 @@
  * group on magnets characterization tests. It implements the individual
  * controllers for capacitor bank voltage of each AC/DC module.
  *
- * PWM signals are mapped as the following :
- *
- *      ePWM  =>  Signal   ( POF transmitter)
- *     channel     Name    (    on BCB      )
- *
- *     ePWM1A => Q1_MOD_1        (PWM1)
- *     ePWM1B => Q3_MOD_1        (PWM2)
- *     ePWM2A => Q2_MOD_1        (PWM3)
- *     ePWM2B => Q4_MOD_1        (PWM4)
- *     ePWM7A => Q2_MOD_1        (PWM13)
- *     ePWM7B => Q2_MOD_2        (PWM14)
- *     ePWM8A => Q2_MOD_2        (PWM15)
- *     ePWM8B => Q2_MOD_1        (PWM16)
- *
  * @author gabriel.brunheira
  * @date 19/02/2020
  *

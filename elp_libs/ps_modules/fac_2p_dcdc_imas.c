@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 by LNLS - Brazilian Synchrotron Light Laboratory
+ * Copyright (C) 2018 by LNLS - Brazilian Synchrotron Light Laboratory
  *
  * Redistribution, modification or use of this software in source or binary
  * forms is permitted as long as the files maintain this copyright. LNLS and
@@ -9,12 +9,11 @@
  *****************************************************************************/
 
 /**
- * @file fac_2p_dcdc_imas.h
- * @brief FAC-2P DC/DC Stage module for IMAS
+ * @file fac_2p_dcdc_imas.c
+ * @brief FAC-2p DC/DC Stage module
  * 
- * Module for control of two DC/DC modules of FAC power supplies used by IMAS
- * group on magnets characterization tests. It implements the controller for
- * load current.
+ * Module for control of two DC/DC modules of FAC power supplies.
+ * It implements the controller for load current.
  *
  * PWM signals are mapped as the following :
  *
@@ -22,16 +21,15 @@
  *     channel     Name    (    on BCB      )
  *
  *     ePWM1A => Q1_MOD_1        (PWM1)
- *     ePWM1B => Q4_MOD_1        (PWM2)
- *     ePWM2A => Q3_MOD_1        (PWM3)
- *     ePWM2B => Q2_MOD_1        (PWM4)
- *     ePWM7A => Q1_MOD_2        (PWM13)
- *     ePWM7B => Q4_MOD_2        (PWM14)
- *     ePWM8A => Q3_MOD_2        (PWM15)
- *     ePWM8B => Q2_MOD_2        (PWM16)
+ *     ePWM2A => Q2_MOD_1        (PWM3)
+ *     ePWM3A => Q1_MOD_2        (PWM5)
+ *     ePWM4A => Q2_MOD_2        (PWM7)
+ *
+ *  TODO: Include reference filtering and feedforward, capacitor banks voltage
+ *  feedforward and modules output voltage share control.
  *
  * @author gabriel.brunheira
- * @date 19/02/2020
+ * @date 27/02/2019
  *
  */
 
@@ -50,57 +48,48 @@
 #include "fac_2p_dcdc_imas.h"
 
 /**
- * Control parameters
- */
-
-#define TIMESLICER_I_SHARE_CONTROLLER_IDX   2
-#define TIMESLICER_I_SHARE_CONTROLLER       g_controller_ctom.timeslicer[TIMESLICER_I_SHARE_CONTROLLER_IDX]
-#define I_SHARE_CONTROLLER_FREQ_SAMP        TIMESLICER_FREQ[TIMESLICER_I_SHARE_CONTROLLER_IDX]
-
-/**
  * Analog variables parameters
  */
-#define MAX_ILOAD                   ANALOG_VARS_MAX[0]
+#define MAX_I_LOAD              ANALOG_VARS_MAX[0]
 
-#define MAX_V_CAPBANK               ANALOG_VARS_MAX[1]
-#define MIN_V_CAPBANK               ANALOG_VARS_MIN[1]
+#define MAX_V_CAPBANK           ANALOG_VARS_MAX[1]
+#define MIN_V_CAPBANK           ANALOG_VARS_MIN[1]
 
+#define MAX_V_OUT_OS   			ANALOG_VARS_MAX[2]
+#define MIN_V_OUT_OS   			ANALOG_VARS_MIN[2]
 
-#define MAX_I_ARM                   ANALOG_VARS_MAX[2]
-#define MAX_I_ARMS_DIFF             ANALOG_VARS_MAX[3]
+#define MAX_I_IDLE_DCCT         ANALOG_VARS_MAX[3]
+#define MIN_I_ACTIVE_DCCT       ANALOG_VARS_MIN[3]
 
-#define I_ARMS_DIFF_MODE            ANALOG_VARS_MAX[4]
-
-#define NETSIGNAL_ELEM_CTOM_BUF     ANALOG_VARS_MAX[5]
-
-#define NETSIGNAL_CTOM_BUF      g_controller_ctom.net_signals[(uint16_t) NETSIGNAL_ELEM_CTOM_BUF].f
-
-#define I_LOAD_CAL_GAIN             ANALOG_VARS_MAX[6]
-#define I_LOAD_CAL_OFFSET           ANALOG_VARS_MAX[7]
+#define MAX_I_ARM               ANALOG_VARS_MAX[4]
+#define MAX_I_ARMS_DIFF         ANALOG_VARS_MAX[5]
+#define I_ARMS_DIFF_MODE        ANALOG_VARS_MAX[6]
 
 /**
  * Controller defines
  */
 
 /// DSP Net Signals
-#define I_LOAD                          g_controller_ctom.net_signals[0].f  // HRADC0
-#define V_CAPBANK_MOD_1                 g_controller_ctom.net_signals[1].f  // HRADC1
-#define V_CAPBANK_MOD_2                 g_controller_ctom.net_signals[2].f  // HRADC2
+#define I_LOAD                          g_controller_ctom.net_signals[0].f   // HRADC0
+#define I_ARM_1                         g_controller_ctom.net_signals[1].f   // HRADC1
+#define I_ARM_2                         g_controller_ctom.net_signals[2].f   // HRADC2
 
-#define I_LOAD_ERROR                    g_controller_ctom.net_signals[3].f
+#define I_LOAD_MEAN                     g_controller_ctom.net_signals[3].f
+#define I_LOAD_ERROR                    g_controller_ctom.net_signals[4].f
+#define DUTY_I_LOAD_PI                  g_controller_ctom.net_signals[5].f
 
-#define DUTY_I_LOAD_PI                  g_controller_ctom.net_signals[4].f
-#define DUTY_REF_FF                     g_controller_ctom.net_signals[5].f
-#define DUTY_MEAN                       g_controller_ctom.net_signals[6].f
+#define I_ARMS_DIFF                     g_controller_ctom.net_signals[6].f
+#define DUTY_ARMS_DIFF                  g_controller_ctom.net_signals[7].f
 
-#define I_ARMS_DIFF                     g_controller_ctom.net_signals[7].f
-#define DUTY_ARMS_DIFF                  g_controller_ctom.net_signals[8].f
+#define I_LOAD_DIFF                     g_controller_ctom.net_signals[8].f
 
-#define V_CAPBANK_MOD_1_FILTERED        g_controller_ctom.net_signals[9].f
-#define V_CAPBANK_MOD_2_FILTERED        g_controller_ctom.net_signals[10].f
+#define DUTY_REF_FF                     g_controller_ctom.net_signals[9].f
 
-#define IN_FF_V_CAPBANK_MOD_1           g_controller_ctom.net_signals[11].f
-#define IN_FF_V_CAPBANK_MOD_2           g_controller_ctom.net_signals[12].f
+#define V_CAPBANK_MOD_1_FILTERED        g_controller_ctom.net_signals[10].f
+#define V_CAPBANK_MOD_2_FILTERED        g_controller_ctom.net_signals[11].f
+
+#define IN_FF_V_CAPBANK_MOD_1           g_controller_ctom.net_signals[12].f
+#define IN_FF_V_CAPBANK_MOD_2           g_controller_ctom.net_signals[13].f
 
 #define WFMREF_IDX                      g_controller_ctom.net_signals[31].f
 
@@ -108,8 +97,11 @@
 #define DUTY_CYCLE_MOD_2                g_controller_ctom.output_signals[1].f
 
 /// ARM Net Signals
-#define I_ARM_1                         g_controller_mtoc.net_signals[0].f
-#define I_ARM_2                         g_controller_mtoc.net_signals[1].f
+#define V_CAPBANK_MOD_1                 g_controller_mtoc.net_signals[0].f
+#define V_CAPBANK_MOD_2                 g_controller_mtoc.net_signals[1].f
+
+#define V_OUT_OS_MOD_1                  g_controller_mtoc.net_signals[2].f
+#define V_OUT_OS_MOD_2                  g_controller_mtoc.net_signals[3].f
 
 /// Reference
 #define I_LOAD_SETPOINT                 g_ipc_ctom.ps_module[0].ps_setpoint
@@ -128,24 +120,23 @@
 #define MAX_SLEWRATE_SIGGEN_OFFSET      g_controller_mtoc.dsp_modules.dsp_srlim[2].coeffs.s.max_slewrate
 
 /// Load current controller
-#define ERROR_I_LOAD                            &g_controller_ctom.dsp_modules.dsp_error[0]
+#define ERROR_I_LOAD                        &g_controller_ctom.dsp_modules.dsp_error[0]
 
-#define PI_CONTROLLER_I_LOAD                    &g_controller_ctom.dsp_modules.dsp_pi[0]
-#define PI_CONTROLLER_I_LOAD_COEFFS             g_controller_mtoc.dsp_modules.dsp_pi[0].coeffs.s
-#define KP_I_LOAD                               PI_CONTROLLER_I_LOAD_COEFFS.kp
-#define KI_I_LOAD                               PI_CONTROLLER_I_LOAD_COEFFS.ki
+#define PI_CONTROLLER_I_LOAD                &g_controller_ctom.dsp_modules.dsp_pi[0]
+#define PI_CONTROLLER_I_LOAD_COEFFS         g_controller_mtoc.dsp_modules.dsp_pi[0].coeffs.s
+#define KP_I_LOAD                           PI_CONTROLLER_I_LOAD_COEFFS.kp
+#define KI_I_LOAD                           PI_CONTROLLER_I_LOAD_COEFFS.ki
 
 #define IIR_2P2Z_REFERENCE_FEEDFORWARD          &g_controller_ctom.dsp_modules.dsp_iir_2p2z[0]
 #define IIR_2P2Z_REFERENCE_FEEDFORWARD_COEFFS   g_controller_mtoc.dsp_modules.dsp_iir_2p2z[0].coeffs.s
 
 /// Arms current share controller
-#define ERROR_I_ARMS_SHARE                  &g_controller_ctom.dsp_modules.dsp_error[1]
-#define PI_CONTROLLER_I_ARMS_SHARE          &g_controller_ctom.dsp_modules.dsp_pi[1]
-#define PI_CONTROLLER_I_ARMS_SHARE_COEFFS   g_controller_mtoc.dsp_modules.dsp_pi[1].coeffs.s
-#define KP_I_ARMS_SHARE                     PI_CONTROLLER_I_ARMS_SHARE_COEFFS.kp
-#define KI_I_ARMS_SHARE                     PI_CONTROLLER_I_ARMS_SHARE_COEFFS.ki
-#define U_MAX_I_ARMS_SHARE_MODULES          PI_CONTROLLER_I_ARMS_SHARE_COEFFS.u_max
-#define U_MIN_I_ARMS_SHARE_MODULES          PI_CONTROLLER_I_ARMS_SHARE_COEFFS.u_min
+#define ERROR_I_SHARE                   &g_controller_ctom.dsp_modules.dsp_error[1]
+
+#define PI_CONTROLLER_I_SHARE           &g_controller_ctom.dsp_modules.dsp_pi[1]
+#define PI_CONTROLLER_I_SHARE_COEFFS    g_controller_mtoc.dsp_modules.dsp_pi[1].coeffs.s
+#define KP_I_SHARE                      PI_CONTROLLER_I_SHARE_COEFFS.kp
+#define KI_I_SHARE                      PI_CONTROLLER_I_SHARE_COEFFS.ki
 
 /// Cap-bank voltage feedforward controllers
 #define IIR_2P2Z_LPF_V_CAPBANK_MOD_1            &g_controller_ctom.dsp_modules.dsp_iir_2p2z[1]
@@ -154,27 +145,37 @@
 #define IIR_2P2Z_LPF_V_CAPBANK_MOD_2            &g_controller_ctom.dsp_modules.dsp_iir_2p2z[2]
 #define IIR_2P2Z_LPF_V_CAPBANK_MOD_2_COEFFS     g_controller_mtoc.dsp_modules.dsp_iir_2p2z[2].coeffs.s
 
-#define FF_V_CAPBANK_MOD_1                      &g_controller_ctom.dsp_modules.dsp_ff[0]
-#define FF_V_CAPBANK_MOD_1_COEFFS               g_controller_mtoc.dsp_modules.dsp_ff[0].coeffs.s
+#define FF_V_CAPBANK_MOD_1              &g_controller_ctom.dsp_modules.dsp_ff[0]
+#define FF_V_CAPBANK_MOD_1_COEFFS       g_controller_mtoc.dsp_modules.dsp_ff[0].coeffs.s
+#define NOM_V_CAPBANK_FF_MOD_1          FF_V_CAPBANK_MOD_1_COEFFS.vdc_nom
+#define MIN_V_CAPBANK_FF_MOD_1          FF_V_CAPBANK_MOD_1_COEFFS.vdc_min
 
-#define FF_V_CAPBANK_MOD_2                      &g_controller_ctom.dsp_modules.dsp_ff[1]
-#define FF_V_CAPBANK_MOD_2_COEFFS               g_controller_mtoc.dsp_modules.dsp_ff[1].coeffs.s
+#define FF_V_CAPBANK_MOD_2              &g_controller_ctom.dsp_modules.dsp_ff[1]
+#define FF_V_CAPBANK_MOD_2_COEFFS       g_controller_mtoc.dsp_modules.dsp_ff[1].coeffs.s
+#define NOM_V_CAPBANK_FF_MOD_2          FF_V_CAPBANK_MOD_2_COEFFS.vdc_nom
+#define MIN_V_CAPBANK_FF_MOD_2          FF_V_CAPBANK_MOD_2_COEFFS.vdc_min
 
 /// PWM modulators
-#define PWM_MODULATOR_MOD_1             g_pwm_modules.pwm_regs[0]
-#define PWM_MODULATOR_MOD_1_NEG         g_pwm_modules.pwm_regs[1]
-#define PWM_MODULATOR_MOD_2             g_pwm_modules.pwm_regs[2]
-#define PWM_MODULATOR_MOD_2_NEG         g_pwm_modules.pwm_regs[3]
+#define PWM_MODULATOR_Q1_MOD_1          g_pwm_modules.pwm_regs[0]
+#define PWM_MODULATOR_Q2_MOD_1          g_pwm_modules.pwm_regs[1]
+#define PWM_MODULATOR_Q1_MOD_2          g_pwm_modules.pwm_regs[2]
+#define PWM_MODULATOR_Q2_MOD_2          g_pwm_modules.pwm_regs[3]
 
 #define SCOPE                           SCOPE_CTOM[0]
 
 /**
  * Digital I/O's status
  */
-#define PIN_STATUS_ACDC_INTERLOCK       !GET_GPDI1
+#define PIN_SET_UDC_INTERLOCK           	SET_GPDO2;
+#define PIN_CLEAR_UDC_INTERLOCK         	CLEAR_GPDO2;
 
-#define PIN_SET_DCDC_INTERLOCK          CLEAR_GPDO1
-#define PIN_CLEAR_DCDC_INTERLOCK        SET_GPDO1
+#define PIN_STATUS_EXTERNAL_INTERLOCK   	GET_GPDI14
+
+#define PIN_STATUS_IDB_MASTER_INTERLOCK     GET_GPDI13
+#define PIN_STATUS_IDB_SLAVE_INTERLOCK     	GET_GPDI15
+
+#define PIN_STATUS_DCCT_STATUS        		GET_GPDI9
+#define PIN_STATUS_DCCT_ACTIVE        		GET_GPDI10
 
 /**
  * Interlocks defines
@@ -186,14 +187,33 @@ typedef enum
     Module_2_CapBank_Overvoltage,
     Module_1_CapBank_Undervoltage,
     Module_2_CapBank_Undervoltage,
-    Arm_1_Overcurrent,
-    Arm_2_Overcurrent,
-    Arms_High_Difference,
-    ACDC_Interlock
+	Module_1_Vout_Overvoltage,
+	Module_2_Vout_Overvoltage,
+	Module_1_Vout_Undervoltage,
+	Module_2_Vout_Undervoltage,
+    IIB_Mod_1_Itlk,
+    IIB_Mod_2_Itlk,
+	IDB_Master_Itlk,
+	IDB_Slave_Itlk,
+    External_Interlock
 } hard_interlocks_t;
 
-#define NUM_HARD_INTERLOCKS     ACDC_Interlock + 1
-#define NUM_SOFT_INTERLOCKS     0
+typedef enum
+{
+    DCCT_Fault,
+    Load_Feedback_Fault,
+    ARM_1_Overcurrent,
+    ARM_2_Overcurrent,
+    Arms_High_Difference
+} soft_interlocks_t;
+
+typedef enum
+{
+    High_Sync_Input_Frequency = 0x00000001
+} alarms_t;
+
+#define NUM_HARD_INTERLOCKS     External_Interlock + 1
+#define NUM_SOFT_INTERLOCKS     Arms_High_Difference + 1
 
 /**
  *  Private variables
@@ -227,6 +247,8 @@ static void turn_off(uint16_t dummy);
 static void reset_interlocks(uint16_t dummy);
 static inline void check_interlocks(void);
 
+static void cfg_pwm_module_h_brigde_q2(volatile struct EPWM_REGS *p_pwm_module);
+
 /**
  * Main function for this power supply module
  */
@@ -257,9 +279,6 @@ void main_fac_2p_dcdc_imas(void)
 static void init_peripherals_drivers(void)
 {
     uint16_t i;
-
-    /// Clear DC/DC interlock signal
-    PIN_CLEAR_DCDC_INTERLOCK;
 
     /// Initialization of HRADC boards
     stop_DMA();
@@ -293,45 +312,42 @@ static void init_peripherals_drivers(void)
     /**
      * Initialization of PWM modules. PWM signals are mapped as the following:
      *
-     *      ePWM  =>  Signal   ( POF transmitter)
-     *     channel     Name    (    on BCB      )
+     *      ePWM  =>  Signal    POF transmitter
+     *     channel     Name        on BCB
      *
-     *     ePWM1A => Q1_MOD_1        (PWM1)
-     *     ePWM1B => Q4_MOD_1        (PWM2)
-     *     ePWM2A => Q3_MOD_1        (PWM3)
-     *     ePWM2B => Q2_MOD_1        (PWM4)
-     *     ePWM7A => Q1_MOD_2        (PWM13)
-     *     ePWM7B => Q4_MOD_2        (PWM14)
-     *     ePWM8A => Q3_MOD_2        (PWM15)
-     *     ePWM8B => Q2_MOD_2        (PWM16)
+     *     ePWM1A => Q1_MOD_1       PWM1
+     *     ePWM2A => Q2_MOD_1       PWM3
+     *     ePWM3A => Q1_MOD_2       PWM5
+     *     ePWM4A => Q2_MOD_2       PWM7
      */
 
     g_pwm_modules.num_modules = 4;
 
-    PWM_MODULATOR_MOD_1     = &EPwm1Regs; // Module 1 positive polarity switches
-    PWM_MODULATOR_MOD_1_NEG = &EPwm2Regs; // Module 1 negative polarity switches
-    PWM_MODULATOR_MOD_2     = &EPwm7Regs; // Module 2 positive polarity switches
-    PWM_MODULATOR_MOD_2_NEG = &EPwm8Regs; // Module 2 negative polarity switches
+    PWM_MODULATOR_Q1_MOD_1 = &EPwm1Regs;
+    PWM_MODULATOR_Q2_MOD_1 = &EPwm2Regs;
+    PWM_MODULATOR_Q1_MOD_2 = &EPwm3Regs;
+    PWM_MODULATOR_Q2_MOD_2 = &EPwm4Regs;
 
     disable_pwm_outputs();
     disable_pwm_tbclk();
     init_pwm_mep_sfo();
 
-    /// PS-4 PWM initialization
-    init_pwm_module(PWM_MODULATOR_MOD_1, PWM_FREQ, 0, PWM_Sync_Master, 0,
-                    PWM_ChB_Complementary, PWM_DEAD_TIME);
-    init_pwm_module(PWM_MODULATOR_MOD_1_NEG, PWM_FREQ, 1, PWM_Sync_Slave, 180,
-                    PWM_ChB_Complementary, PWM_DEAD_TIME);
+    init_pwm_module(PWM_MODULATOR_Q1_MOD_1, PWM_FREQ, 0, PWM_Sync_Master, 0,
+                    PWM_ChB_Independent, PWM_DEAD_TIME);
+    init_pwm_module(PWM_MODULATOR_Q2_MOD_1, PWM_FREQ, 1, PWM_Sync_Slave, 180,
+                    PWM_ChB_Independent, PWM_DEAD_TIME);
+    cfg_pwm_module_h_brigde_q2(PWM_MODULATOR_Q2_MOD_1);
 
-    init_pwm_module(PWM_MODULATOR_MOD_2, PWM_FREQ, 0, PWM_Sync_Slave, 90,
-                    PWM_ChB_Complementary, PWM_DEAD_TIME);
-    init_pwm_module(PWM_MODULATOR_MOD_2_NEG, PWM_FREQ, 7, PWM_Sync_Slave, 270,
-                    PWM_ChB_Complementary, PWM_DEAD_TIME);
+    init_pwm_module(PWM_MODULATOR_Q1_MOD_2, PWM_FREQ, 0, PWM_Sync_Slave, 90,
+                    PWM_ChB_Independent, PWM_DEAD_TIME);
+    init_pwm_module(PWM_MODULATOR_Q2_MOD_2, PWM_FREQ, 3, PWM_Sync_Slave, 270,
+                    PWM_ChB_Independent, PWM_DEAD_TIME);
+    cfg_pwm_module_h_brigde_q2(PWM_MODULATOR_Q2_MOD_2);
 
     InitEPwm1Gpio();
     InitEPwm2Gpio();
-    InitEPwm7Gpio();
-    InitEPwm8Gpio();
+    InitEPwm3Gpio();
+    InitEPwm4Gpio();
 
     /// Initialization of timers
     InitCpuTimers();
@@ -383,8 +399,8 @@ static void init_controller(void)
     init_siggen(&SIGGEN, ISR_CONTROL_FREQ, &I_LOAD_REFERENCE);
 
     cfg_siggen(&SIGGEN, SIGGEN_TYPE_PARAM, SIGGEN_NUM_CYCLES_PARAM,
-               SIGGEN_FREQ_PARAM, SIGGEN_AMP_PARAM, SIGGEN_OFFSET_PARAM,
-               SIGGEN_AUX_PARAM);
+               SIGGEN_FREQ_PARAM, SIGGEN_AMP_PARAM,
+               SIGGEN_OFFSET_PARAM, SIGGEN_AUX_PARAM);
 
     /**
      *        name:     SRLIM_SIGGEN_AMP
@@ -429,11 +445,11 @@ static void init_controller(void)
      * description:     Load current reference error
      *  dsp module:     DSP_Error
      *           +:     I_LOAD_REFERENCE
-     *           -:     I_LOAD
+     *           -:     I_LOAD_MEAN
      *         out:     I_LOAD_ERROR
      */
 
-    init_dsp_error(ERROR_I_LOAD, &I_LOAD_REFERENCE, &I_LOAD, &I_LOAD_ERROR);
+    init_dsp_error(ERROR_I_LOAD, &I_LOAD_REFERENCE, &I_LOAD_MEAN, &I_LOAD_ERROR);
 
     /**
      *        name:     PI_CONTROLLER_I_LOAD
@@ -463,32 +479,20 @@ static void init_controller(void)
                       PWM_MAX_DUTY, PWM_MIN_DUTY,
                       &I_LOAD_REFERENCE, &DUTY_REF_FF);
 
-    /****************************************************************/
-    /** INITIALIZATION OF PARALLEL ARMS CURRENT SHARE CONTROL LOOP **/
-    /****************************************************************/
+    /*******************************************************/
+    /** INITIALIZATION OF ARMS CURRENT SHARE CONTROL LOOP **/
+    /*******************************************************/
 
     /**
-     *        name:     ERROR_I_ARMS_SHARE
-     * description:     Parallel arms current difference error
-     *  dsp module:     DSP_Error
-     *           +:     I_ARM_1
-     *           -:     I_ARM_2
-     *         out:     I_ARMS_DIFF
-     */
-
-    init_dsp_error(ERROR_I_ARMS_SHARE, &I_ARM_1, &I_ARM_2, &I_ARMS_DIFF);
-
-    /**
-     *        name:     PI_CONTROLLER_I_SHARE_MODULES
-     * description:     PI controller for current share between parallel arms
+     *        name:     PI_CONTROLLER_I_SHARE
+     * description:     Arms current share PI controller
      *  dsp module:     DSP_PI
      *          in:     I_ARMS_DIFF
      *         out:     DUTY_ARMS_DIFF
      */
 
-    init_dsp_pi(PI_CONTROLLER_I_ARMS_SHARE, KP_I_ARMS_SHARE, KI_I_ARMS_SHARE,
-                I_SHARE_CONTROLLER_FREQ_SAMP, U_MAX_I_ARMS_SHARE_MODULES,
-                U_MIN_I_ARMS_SHARE_MODULES, &I_ARMS_DIFF, &DUTY_ARMS_DIFF);
+    init_dsp_pi(PI_CONTROLLER_I_SHARE, KP_I_SHARE, KI_I_SHARE, ISR_CONTROL_FREQ,
+                PWM_LIM_DUTY_SHARE, -PWM_LIM_DUTY_SHARE, &I_ARMS_DIFF, &DUTY_ARMS_DIFF);
 
     /**********************************************************/
     /** INITIALIZATION OF CAPACITOR BANK VOLTAGE FEEDFORWARD **/
@@ -520,10 +524,9 @@ static void init_controller(void)
      *         out:     DUTY_CYCLE_MOD_1
      */
 
-    init_dsp_vdclink_ff(FF_V_CAPBANK_MOD_1, FF_V_CAPBANK_MOD_1_COEFFS.vdc_nom,
-                        FF_V_CAPBANK_MOD_1_COEFFS.vdc_min,
-                        &V_CAPBANK_MOD_1_FILTERED, &IN_FF_V_CAPBANK_MOD_1,
-                        &DUTY_CYCLE_MOD_1);
+    init_dsp_vdclink_ff(FF_V_CAPBANK_MOD_1, NOM_V_CAPBANK_FF_MOD_1,
+                        MIN_V_CAPBANK_FF_MOD_1, &V_CAPBANK_MOD_1_FILTERED,
+                        &IN_FF_V_CAPBANK_MOD_1, &DUTY_CYCLE_MOD_1);
 
     /**
      *        name:     IIR_2P2Z_LPF_V_CAPBANK_MOD_2
@@ -551,20 +554,9 @@ static void init_controller(void)
      *         out:     DUTY_CYCLE_MOD_2
      */
 
-    init_dsp_vdclink_ff(FF_V_CAPBANK_MOD_2, FF_V_CAPBANK_MOD_2_COEFFS.vdc_nom,
-                        FF_V_CAPBANK_MOD_2_COEFFS.vdc_min,
-                        &V_CAPBANK_MOD_2_FILTERED, &IN_FF_V_CAPBANK_MOD_2,
-                        &DUTY_CYCLE_MOD_2);
-
-    /************************************/
-    /** INITIALIZATION OF TIME SLICERS **/
-    /************************************/
-
-    /**
-     * Time-slicer for controller
-     */
-    init_timeslicer(&TIMESLICER_I_SHARE_CONTROLLER, ISR_CONTROL_FREQ);
-    cfg_timeslicer(&TIMESLICER_I_SHARE_CONTROLLER, I_SHARE_CONTROLLER_FREQ_SAMP);
+    init_dsp_vdclink_ff(FF_V_CAPBANK_MOD_2, NOM_V_CAPBANK_FF_MOD_2,
+                        MIN_V_CAPBANK_FF_MOD_2, &V_CAPBANK_MOD_2_FILTERED,
+                        &IN_FF_V_CAPBANK_MOD_2, &DUTY_CYCLE_MOD_2);
 
     /******************************/
     /** INITIALIZATION OF SCOPES **/
@@ -573,7 +565,6 @@ static void init_controller(void)
     init_scope(&SCOPE, ISR_CONTROL_FREQ, SCOPE_FREQ_SAMPLING_PARAM[0],
                &g_buf_samples_ctom[0], SIZE_BUF_SAMPLES_CTOM,
                SCOPE_SOURCE_PARAM[0], &run_scope_shared_ram);
-
     /**
      * Reset all internal variables
      */
@@ -585,8 +576,10 @@ static void init_controller(void)
  */
 static void reset_controller(void)
 {
-    set_pwm_duty_hbridge(PWM_MODULATOR_MOD_1, 0.0);
-    set_pwm_duty_hbridge(PWM_MODULATOR_MOD_2, 0.0);
+    set_pwm_duty_chA(PWM_MODULATOR_Q1_MOD_1, 50.0);
+    set_pwm_duty_chA(PWM_MODULATOR_Q1_MOD_2, 50.0);
+
+    g_ipc_ctom.ps_module[0].ps_status.bit.openloop = LOOP_STATE;
 
     I_LOAD_SETPOINT = 0.0;
     I_LOAD_REFERENCE = 0.0;
@@ -598,8 +591,7 @@ static void reset_controller(void)
 
     reset_dsp_iir_2p2z(IIR_2P2Z_REFERENCE_FEEDFORWARD);
 
-    reset_dsp_error(ERROR_I_ARMS_SHARE);
-    reset_dsp_pi(PI_CONTROLLER_I_ARMS_SHARE);
+    reset_dsp_pi(PI_CONTROLLER_I_SHARE);
 
     reset_dsp_iir_2p2z(IIR_2P2Z_LPF_V_CAPBANK_MOD_1);
     reset_dsp_iir_2p2z(IIR_2P2Z_LPF_V_CAPBANK_MOD_2);
@@ -622,19 +614,19 @@ static void init_interruptions(void)
     EALLOW;
     PieVectTable.EPWM1_INT =  &isr_init_controller;
     PieVectTable.EPWM2_INT =  &isr_controller;
-    //PieVectTable.EPWM7_INT =  &isr_controller;
-    //PieVectTable.EPWM8_INT =  &isr_controller;
+    PieVectTable.EPWM3_INT =  &isr_controller;
+    PieVectTable.EPWM4_INT =  &isr_controller;
     EDIS;
 
     PieCtrlRegs.PIEIER3.bit.INTx1 = 1;
     PieCtrlRegs.PIEIER3.bit.INTx2 = 1;
-    //PieCtrlRegs.PIEIER3.bit.INTx7 = 1;
-    //PieCtrlRegs.PIEIER3.bit.INTx8 = 1;
+    PieCtrlRegs.PIEIER3.bit.INTx3 = 1;
+    PieCtrlRegs.PIEIER3.bit.INTx4 = 1;
 
-    enable_pwm_interrupt(PWM_MODULATOR_MOD_1);
-    enable_pwm_interrupt(PWM_MODULATOR_MOD_1_NEG);
-    //enable_pwm_interrupt(PWM_MODULATOR_MOD_2);
-    //enable_pwm_interrupt(PWM_MODULATOR_MOD_2_NEG);
+    enable_pwm_interrupt(PWM_MODULATOR_Q1_MOD_1);
+    enable_pwm_interrupt(PWM_MODULATOR_Q2_MOD_1);
+    enable_pwm_interrupt(PWM_MODULATOR_Q1_MOD_2);
+    enable_pwm_interrupt(PWM_MODULATOR_Q2_MOD_2);
 
     IER |= M_INT1;
     IER |= M_INT3;
@@ -659,13 +651,13 @@ static void term_interruptions(void)
 
     PieCtrlRegs.PIEIER3.bit.INTx1 = 0;  /// ePWM1
     PieCtrlRegs.PIEIER3.bit.INTx2 = 0;  /// ePWM2
-    //PieCtrlRegs.PIEIER3.bit.INTx7 = 0;  /// ePWM7
-    //PieCtrlRegs.PIEIER3.bit.INTx8 = 0;  /// ePWM8
+    PieCtrlRegs.PIEIER3.bit.INTx3 = 0;  /// ePWM3
+    PieCtrlRegs.PIEIER3.bit.INTx4 = 0;  /// ePWM4
 
-    disable_pwm_interrupt(PWM_MODULATOR_MOD_1);
-    disable_pwm_interrupt(PWM_MODULATOR_MOD_1_NEG);
-    //disable_pwm_interrupt(PWM_MODULATOR_MOD_2);
-    //disable_pwm_interrupt(PWM_MODULATOR_MOD_2_NEG);
+    disable_pwm_interrupt(PWM_MODULATOR_Q1_MOD_1);
+    disable_pwm_interrupt(PWM_MODULATOR_Q2_MOD_1);
+    disable_pwm_interrupt(PWM_MODULATOR_Q1_MOD_2);
+    disable_pwm_interrupt(PWM_MODULATOR_Q2_MOD_2);
 
     /// Clear flags
     PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT11;
@@ -680,18 +672,30 @@ static interrupt void isr_init_controller(void)
     PieVectTable.EPWM1_INT = &isr_controller;
     EDIS;
 
-    PWM_MODULATOR_MOD_1->ETSEL.bit.INTSEL = ET_CTR_ZERO;
-    PWM_MODULATOR_MOD_1->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q1_MOD_1->ETSEL.bit.INTSEL = ET_CTR_ZERO;
+    PWM_MODULATOR_Q1_MOD_1->ETCLR.bit.INT = 1;
 
-    PWM_MODULATOR_MOD_1_NEG->ETSEL.bit.INTSEL = ET_CTR_ZERO;
-    PWM_MODULATOR_MOD_1_NEG->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q2_MOD_1->ETSEL.bit.INTSEL = ET_CTR_ZERO;
+    PWM_MODULATOR_Q2_MOD_1->ETCLR.bit.INT = 1;
 
-    //PWM_MODULATOR_MOD_2->ETSEL.bit.INTSEL = ET_CTR_ZERO;
-    //PWM_MODULATOR_MOD_2->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q1_MOD_2->ETSEL.bit.INTSEL = ET_CTR_ZERO;
+    PWM_MODULATOR_Q1_MOD_2->ETCLR.bit.INT = 1;
 
-    //PWM_MODULATOR_MOD_2_NEG->ETSEL.bit.INTSEL = ET_CTR_ZERO;
-    //PWM_MODULATOR_MOD_2_NEG->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q2_MOD_2->ETSEL.bit.INTSEL = ET_CTR_ZERO;
+    PWM_MODULATOR_Q2_MOD_2->ETCLR.bit.INT = 1;
 
+    /**
+     *  Enable XINT2 (external interrupt 2) interrupt used for sync pulses for
+     *  the first time
+     *
+     *  TODO: include here mechanism described in section 1.5.4.3 from F28M36
+     *  Technical Reference Manual (SPRUHE8E) to clear flag before enabling, to
+     *  avoid false alarms that may occur when sync pulses are received during
+     *  firmware initialization.
+     */
+    PieCtrlRegs.PIEIER1.bit.INTx5 = 1;
+
+    /// Clear interrupt flag for PWM interrupts group
     PieCtrlRegs.PIEACK.all |= M_INT3;
 }
 
@@ -730,8 +734,6 @@ static interrupt void isr_controller(void)
 
     temp[0] *= HRADCs_Info.HRADC_boards[0].gain * decimation_coeff;
     temp[0] += HRADCs_Info.HRADC_boards[0].offset;
-    temp[0] *= I_LOAD_CAL_GAIN;
-    temp[0] += I_LOAD_CAL_OFFSET;
 
     temp[1] *= HRADCs_Info.HRADC_boards[1].gain * decimation_coeff;
     temp[1] += HRADCs_Info.HRADC_boards[1].offset;
@@ -743,8 +745,11 @@ static interrupt void isr_controller(void)
     temp[3] += HRADCs_Info.HRADC_boards[3].offset;
 
     I_LOAD = temp[0];
-    V_CAPBANK_MOD_1 = temp[1];
-    V_CAPBANK_MOD_2 = temp[2];
+    I_ARM_1 = temp[1];
+    I_ARM_2 = temp[2];
+
+    I_LOAD_MEAN = I_LOAD;
+    I_LOAD_DIFF = 0;
 
     run_dsp_iir_2p2z(IIR_2P2Z_LPF_V_CAPBANK_MOD_1);
     run_dsp_iir_2p2z(IIR_2P2Z_LPF_V_CAPBANK_MOD_2);
@@ -799,30 +804,20 @@ static interrupt void isr_controller(void)
             run_dsp_pi(PI_CONTROLLER_I_LOAD);
             run_dsp_iir_2p2z(IIR_2P2Z_REFERENCE_FEEDFORWARD);
 
-            DUTY_MEAN = DUTY_I_LOAD_PI + DUTY_REF_FF;
-
             /// Arms current share controller
-            /*********************************************/
-            RUN_TIMESLICER(TIMESLICER_I_SHARE_CONTROLLER)
-            /*********************************************/
-
-                if(I_ARMS_DIFF_MODE)
-                {
-                    I_ARMS_DIFF = I_ARM_1 - 0.5*I_LOAD;
-                }
-                else
-                {
-                    run_dsp_error(ERROR_I_ARMS_SHARE);
-                }
-                run_dsp_pi(PI_CONTROLLER_I_ARMS_SHARE);
-
-            /*********************************************/
-            END_TIMESLICER(TIMESLICER_I_SHARE_CONTROLLER)
-            /*********************************************/
+            if(I_ARMS_DIFF_MODE)
+            {
+                I_ARMS_DIFF = I_ARM_1 - 0.5*I_LOAD_MEAN;
+            }
+            else
+            {
+                I_ARMS_DIFF = I_ARM_1 - I_ARM_2;
+            }
+            run_dsp_pi(PI_CONTROLLER_I_SHARE);
 
             /// Cap-bank voltage feedforward controllers
-            IN_FF_V_CAPBANK_MOD_1 = DUTY_MEAN - DUTY_ARMS_DIFF;
-            IN_FF_V_CAPBANK_MOD_2 = DUTY_MEAN + DUTY_ARMS_DIFF;
+            IN_FF_V_CAPBANK_MOD_1 = DUTY_I_LOAD_PI + DUTY_REF_FF;
+            IN_FF_V_CAPBANK_MOD_2 = DUTY_I_LOAD_PI + DUTY_REF_FF;
 
             run_dsp_vdclink_ff(FF_V_CAPBANK_MOD_1);
             run_dsp_vdclink_ff(FF_V_CAPBANK_MOD_2);
@@ -831,8 +826,8 @@ static interrupt void isr_controller(void)
             SATURATE(DUTY_CYCLE_MOD_2, PWM_MAX_DUTY, PWM_MIN_DUTY);
         }
 
-        set_pwm_duty_hbridge(PWM_MODULATOR_MOD_1, DUTY_CYCLE_MOD_1);
-        set_pwm_duty_hbridge(PWM_MODULATOR_MOD_2, DUTY_CYCLE_MOD_2);
+        set_pwm_duty_hbridge(PWM_MODULATOR_Q1_MOD_1, DUTY_CYCLE_MOD_1);
+        set_pwm_duty_hbridge(PWM_MODULATOR_Q1_MOD_2, DUTY_CYCLE_MOD_2);
     }
 
     WFMREF_IDX = (float) (WFMREF.wfmref_data[WFMREF.wfmref_selected].p_buf_idx -
@@ -842,9 +837,41 @@ static interrupt void isr_controller(void)
 
     SET_INTERLOCKS_TIMEBASE_FLAG(0);
 
-    PWM_MODULATOR_MOD_1->ETCLR.bit.INT = 1;
-    PWM_MODULATOR_MOD_1_NEG->ETCLR.bit.INT = 1;
+    /**
+     * Re-enable external interrupt 2 (XINT2) interrupts to allow sync pulses to
+     * be handled once per isr_controller
+     */
+    if(PieCtrlRegs.PIEIER1.bit.INTx5 == 0)
+    {
+        /// Set alarm if counter is below limit when receiving new sync pulse
+        if(counter_sync_period < MIN_NUM_ISR_CONTROLLER_SYNC)
+        {
+            g_ipc_ctom.ps_module[0].ps_alarms = High_Sync_Input_Frequency;
+        }
 
+        /// Store counter value on BSMP variable
+        g_ipc_ctom.period_sync_pulse = counter_sync_period;
+        counter_sync_period = 0;
+    }
+
+    counter_sync_period++;
+
+    /**
+     * Reset counter to threshold to avoid false alarms during its overflow
+     */
+    if(counter_sync_period == MAX_NUM_ISR_CONTROLLER_SYNC)
+    {
+        counter_sync_period = MIN_NUM_ISR_CONTROLLER_SYNC;
+    }
+
+    /// Re-enable XINT2 (external interrupt 2) interrupt used for sync pulses
+    PieCtrlRegs.PIEIER1.bit.INTx5 = 1;
+
+    /// Clear interrupt flags for PWM interrupts
+    PWM_MODULATOR_Q1_MOD_1->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q2_MOD_1->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q1_MOD_2->ETCLR.bit.INT = 1;
+    PWM_MODULATOR_Q2_MOD_2->ETCLR.bit.INT = 1;
     PieCtrlRegs.PIEACK.all |= M_INT3;
 
     CLEAR_DEBUG_GPIO1;
@@ -883,16 +910,30 @@ static void turn_on(uint16_t dummy)
 {
     if(V_CAPBANK_MOD_1 < MIN_V_CAPBANK)
     {
-        PIN_SET_DCDC_INTERLOCK;
+        PIN_SET_UDC_INTERLOCK;
         BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Module_1_CapBank_Undervoltage);
         set_hard_interlock(0, Module_1_CapBank_Undervoltage);
     }
 
     if(V_CAPBANK_MOD_2 < MIN_V_CAPBANK)
     {
-        PIN_SET_DCDC_INTERLOCK;
+        PIN_SET_UDC_INTERLOCK;
         BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Module_2_CapBank_Undervoltage);
         set_hard_interlock(0, Module_2_CapBank_Undervoltage);
+    }
+
+    if(V_OUT_OS_MOD_1 < MIN_V_OUT_OS)
+    {
+        PIN_SET_UDC_INTERLOCK;
+        BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Module_1_Vout_Undervoltage);
+        set_hard_interlock(0, Module_1_Vout_Undervoltage);
+    }
+
+    if(V_OUT_OS_MOD_2 < MIN_V_OUT_OS)
+    {
+        PIN_SET_UDC_INTERLOCK;
+        BYPASS_HARD_INTERLOCK_DEBOUNCE(0, Module_2_Vout_Undervoltage);
+        set_hard_interlock(0, Module_2_Vout_Undervoltage);
     }
 
     #ifdef USE_ITLK
@@ -901,9 +942,7 @@ static void turn_on(uint16_t dummy)
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
     #endif
     {
-        reset_controller();
 
-        g_ipc_ctom.ps_module[0].ps_status.bit.openloop = OPEN_LOOP;
         g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
         enable_pwm_output(0);
         enable_pwm_output(1);
@@ -941,11 +980,15 @@ static void reset_interlocks(uint16_t dummy)
 {
     g_ipc_ctom.ps_module[0].ps_hard_interlock = 0;
     g_ipc_ctom.ps_module[0].ps_soft_interlock = 0;
+    g_ipc_ctom.ps_module[0].ps_alarms = 0;
 
     if(g_ipc_ctom.ps_module[0].ps_status.bit.state < Initializing)
     {
         g_ipc_ctom.ps_module[0].ps_status.bit.state = Off;
-        PIN_CLEAR_DCDC_INTERLOCK;
+        init_control_framework(&g_controller_ctom);
+        init_control_framework(&g_controller_mtoc);
+
+        PIN_CLEAR_UDC_INTERLOCK;
     }
 }
 
@@ -954,45 +997,96 @@ static void reset_interlocks(uint16_t dummy)
  */
 static inline void check_interlocks(void)
 {
-    if(fabs(I_LOAD) > MAX_ILOAD)
+    if(fabs(I_LOAD_MEAN) > MAX_I_LOAD)
     {
-        PIN_SET_DCDC_INTERLOCK;
         set_hard_interlock(0, Load_Overcurrent);
+    }
+
+    if(fabs(I_ARM_1) > MAX_I_ARM)
+    {
+        set_soft_interlock(0, ARM_1_Overcurrent);
+    }
+
+    if(fabs(I_ARM_2) > MAX_I_ARM)
+    {
+        set_soft_interlock(0, ARM_2_Overcurrent);
+    }
+
+    if(fabs(I_ARMS_DIFF) > MAX_I_ARMS_DIFF)
+    {
+        set_soft_interlock(0, Arms_High_Difference);
+    }
+
+    if(fabs(V_OUT_OS_MOD_1) > MAX_V_OUT_OS)
+    {
+        set_hard_interlock(0, Module_1_Vout_Overvoltage);
+    }
+
+    if(fabs(V_OUT_OS_MOD_2) > MAX_V_OUT_OS)
+    {
+        set_hard_interlock(0, Module_2_Vout_Overvoltage);
+    }
+
+    DINT;
+
+    if(g_ipc_ctom.ps_module[0].ps_status.bit.state <= Interlock)
+    {
+    	if(fabs(V_OUT_OS_MOD_1) < MIN_V_OUT_OS)
+    	{
+    		set_hard_interlock(0, Module_1_Vout_Undervoltage);
+    	}
+
+    	if(fabs(V_OUT_OS_MOD_2) < MIN_V_OUT_OS)
+    	{
+    		set_hard_interlock(0, Module_2_Vout_Undervoltage);
+    	}
+    }
+
+    EINT;
+
+    if(!PIN_STATUS_EXTERNAL_INTERLOCK)
+    {
+        set_hard_interlock(0, External_Interlock);
+    }
+
+    if(!PIN_STATUS_IDB_MASTER_INTERLOCK)
+    {
+        set_hard_interlock(0, IDB_Master_Itlk);
+    }
+
+    if(!PIN_STATUS_IDB_SLAVE_INTERLOCK)
+    {
+        set_hard_interlock(0, IDB_Slave_Itlk);
+    }
+
+    if(!PIN_STATUS_DCCT_STATUS)
+    {
+        set_soft_interlock(0, DCCT_Fault);
+    }
+
+    if(PIN_STATUS_DCCT_ACTIVE)
+    {
+        if(fabs(I_LOAD) < MIN_I_ACTIVE_DCCT)
+        {
+            set_soft_interlock(0, Load_Feedback_Fault);
+        }
+    }
+    else
+    {
+        if(fabs(I_LOAD) > MAX_I_IDLE_DCCT)
+        {
+            set_soft_interlock(0, Load_Feedback_Fault);
+        }
     }
 
     if(V_CAPBANK_MOD_1 > MAX_V_CAPBANK)
     {
-        PIN_SET_DCDC_INTERLOCK;
         set_hard_interlock(0, Module_1_CapBank_Overvoltage);
     }
 
     if(V_CAPBANK_MOD_2 > MAX_V_CAPBANK)
     {
-        PIN_SET_DCDC_INTERLOCK;
         set_hard_interlock(0, Module_2_CapBank_Overvoltage);
-    }
-
-    if(fabs(I_ARM_1) > MAX_I_ARM)
-    {
-        PIN_SET_DCDC_INTERLOCK;
-        set_hard_interlock(0, Arm_1_Overcurrent);
-    }
-
-    if(fabs(I_ARM_2) > MAX_I_ARM)
-    {
-        PIN_SET_DCDC_INTERLOCK;
-        set_hard_interlock(0, Arm_2_Overcurrent);
-    }
-
-    if(fabs(I_ARMS_DIFF) > MAX_I_ARMS_DIFF)
-    {
-        PIN_SET_DCDC_INTERLOCK;
-        set_hard_interlock(0, Arms_High_Difference);
-    }
-
-    if(PIN_STATUS_ACDC_INTERLOCK)
-    {
-        set_hard_interlock(0, ACDC_Interlock);
     }
 
     DINT;
@@ -1001,13 +1095,11 @@ static inline void check_interlocks(void)
     {
         if(V_CAPBANK_MOD_1 < MIN_V_CAPBANK)
         {
-            PIN_SET_DCDC_INTERLOCK;
             set_hard_interlock(0, Module_1_CapBank_Undervoltage);
         }
 
         if(V_CAPBANK_MOD_2 < MIN_V_CAPBANK)
         {
-            PIN_SET_DCDC_INTERLOCK;
             set_hard_interlock(0, Module_2_CapBank_Undervoltage);
         }
     }
@@ -1017,4 +1109,33 @@ static inline void check_interlocks(void)
     //SET_DEBUG_GPIO1;
     run_interlocks_debouncing(0);
     //CLEAR_DEBUG_GPIO1;
+
+    if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Interlock)
+    {
+        PIN_SET_UDC_INTERLOCK;
+    }
 }
+
+/**
+ * Configure specified PWM module to generate inverted PWM pulses (active on
+ * LOW). This is used to generate 8x Q2 signals for the 8 DC/DC modules.
+ *
+ * @param p_pwm_module specified PWM module
+ */
+static void cfg_pwm_module_h_brigde_q2(volatile struct EPWM_REGS *p_pwm_module)
+{
+    p_pwm_module->AQCTLA.bit.ZRO = AQ_CLEAR;
+    p_pwm_module->AQCTLA.bit.PRD = AQ_NO_ACTION;
+    p_pwm_module->AQCTLA.bit.CAU = AQ_SET;
+    p_pwm_module->AQCTLA.bit.CAD = AQ_NO_ACTION;
+    p_pwm_module->AQCTLA.bit.CBU = AQ_NO_ACTION;
+    p_pwm_module->AQCTLA.bit.CBD = AQ_NO_ACTION;
+
+    p_pwm_module->AQCTLB.bit.ZRO = AQ_CLEAR;
+    p_pwm_module->AQCTLB.bit.PRD = AQ_NO_ACTION;
+    p_pwm_module->AQCTLB.bit.CAU = AQ_NO_ACTION;
+    p_pwm_module->AQCTLB.bit.CAD = AQ_NO_ACTION;
+    p_pwm_module->AQCTLB.bit.CBU = AQ_SET;
+    p_pwm_module->AQCTLB.bit.CBD = AQ_NO_ACTION;
+}
+

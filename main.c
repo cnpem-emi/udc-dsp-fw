@@ -114,7 +114,8 @@ void main(void)
         {
             case FBP:
             {
-                main_fbp();
+                //main_fbp();
+                main_uninitialized();
                 break;
             }
 
@@ -162,20 +163,22 @@ void main(void)
 
             case FAP:
             {
-                main_fap();
+                //main_fap();
+                main_uninitialized();
                 break;
             }
 
             case FAP_4P:
             {
-                main_fap_4p();
+                //main_fap_4p();
+            	main_uninitialized();
                 break;
             }
 
             case FAC_DCDC_EMA:
             {
-                main_fac_dcdc_ema();
-                //main_uninitialized();
+                //main_fac_dcdc_ema();
+                main_uninitialized();
                 break;
             }
 
@@ -194,15 +197,13 @@ void main(void)
 
             case FAC_2P_ACDC_IMAS:
             {
-                //main_fac_2p_acdc_imas();
-                main_uninitialized();
+                main_fac_2p_acdc_imas();
                 break;
             }
 
             case FAC_2P_DCDC_IMAS:
             {
-                //main_fac_2p_dcdc_imas();
-                main_uninitialized();
+                main_fac_2p_dcdc_imas();
                 break;
             }
 
