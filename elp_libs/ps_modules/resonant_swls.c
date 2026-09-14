@@ -160,7 +160,8 @@ typedef enum
     Opened_Contactor_K1_Fault,
 	Opened_Contactor_K2_Fault,
     External_Itlk,
-    IIB_Itlk
+    IIB_Itlk,
+	QDS_Itlk
 } hard_interlocks_t;
 
 typedef enum
@@ -177,7 +178,7 @@ typedef enum
     High_Sync_Input_Frequency = 0x00000001
 } alarms_t;
 
-#define NUM_HARD_INTERLOCKS             IIB_Itlk + 1
+#define NUM_HARD_INTERLOCKS             QDS_Itlk + 1
 #define NUM_SOFT_INTERLOCKS             Load_Feedback_2_Fault + 1
 
 /**
@@ -211,6 +212,8 @@ static void turn_off(uint16_t dummy);
 
 static void reset_interlocks(uint16_t dummy);
 static inline void check_interlocks(void);
+
+interrupt void isr_trigger_qds(void);
 
 /**
  * Main function for this power supply module
@@ -323,6 +326,15 @@ static void init_peripherals_drivers(void)
     InitCpuTimers();
     ConfigCpuTimer(&CpuTimer0, C28_FREQ_MHZ, 1000000);
     CpuTimer0Regs.TCR.bit.TIE = 0;
+
+    /// Initialization of INT_C28 for trigger qds ISR
+    EALLOW;
+    GpioTripRegs.GPTRIP6SEL.bit.GPTRIP6SEL = 29;
+    XIntruptRegs.XINT3CR.bit.ENABLE = 1;
+    XIntruptRegs.XINT3CR.bit.POLARITY = 1;
+    PieVectTable.XINT3 = &isr_trigger_qds;
+    PieCtrlRegs.PIEIER12.bit.INTx1 = 1;     // XINT3
+    EDIS;
 }
 
 static void term_peripherals_drivers(void)
@@ -738,6 +750,7 @@ static void init_interruptions(void)
     IER |= M_INT1;
     IER |= M_INT3;
     IER |= M_INT11;
+    IER |= M_INT12;
 
     /// Enable global interrupts (EINT)
     EINT;
@@ -764,7 +777,7 @@ static void term_interruptions(void)
     disable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     /// Clear flags
-    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT11;
+    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT11 | M_INT12;
 }
 
 /**
@@ -934,6 +947,8 @@ static inline void check_interlocks(void)
 
     if(!PIN_STATUS_EXTERNAL_INTERLOCK)
     {
+    	disable_pwm_outputs();
+
     	set_hard_interlock(0, External_Itlk);
     }
 
@@ -997,4 +1012,13 @@ static inline void check_interlocks(void)
     }
 
     //CLEAR_DEBUG_GPIO1;
+}
+
+interrupt void isr_trigger_qds(void)
+{
+	disable_pwm_outputs();
+
+    set_hard_interlock(0, QDS_Itlk);
+
+	PieCtrlRegs.PIEACK.all |= M_INT12;
 }
