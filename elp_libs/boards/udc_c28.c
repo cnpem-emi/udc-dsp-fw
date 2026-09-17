@@ -149,14 +149,14 @@ void init_gpios(void)
     GpioG2CtrlRegs.GPGDIR.bit.GPIO199 = 0;
 
     /// INT_ARM <=> UDC_GPIO28
-    GpioCtrlRegs.GPAMUX2.bit.GPIO28 = 0;
-    GpioDataRegs.GPACLEAR.bit.GPIO28 = 1;
-    GpioCtrlRegs.GPADIR.bit.GPIO28 = 0;
+    //GpioCtrlRegs.GPAMUX2.bit.GPIO28 = 0;
+    //GpioDataRegs.GPACLEAR.bit.GPIO28 = 1;
+    //GpioCtrlRegs.GPADIR.bit.GPIO28 = 0;
 
     /// INT_C28 <=> UDC_GPIO29
-    GpioCtrlRegs.GPAMUX2.bit.GPIO29 = 0;
-    GpioDataRegs.GPACLEAR.bit.GPIO29 = 1;
-    GpioCtrlRegs.GPADIR.bit.GPIO29 = 0;
+    //GpioCtrlRegs.GPAMUX2.bit.GPIO29 = 0;
+    //GpioDataRegs.GPACLEAR.bit.GPIO29 = 1;
+    //GpioCtrlRegs.GPADIR.bit.GPIO29 = 0;
 
     /// INT_GENERAL / SYNC_IN <=> UDC_GPIO55
     GpioCtrlRegs.GPBMUX2.bit.GPIO55 = 0;
