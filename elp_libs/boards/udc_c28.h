@@ -98,8 +98,8 @@
 #define GET_GPDI15              GpioG2DataRegs.GPGDAT.bit.GPIO198
 #define GET_GPDI16              GpioG2DataRegs.GPGDAT.bit.GPIO199
 
-#define GET_INT_ARM             (!GpioDataRegs.GPADAT.bit.GPIO28)
-#define GET_INT_C28             (!GpioDataRegs.GPADAT.bit.GPIO29)
+#define GET_INT_ARM             (GpioDataRegs.GPADAT.bit.GPIO28)
+#define GET_INT_C28             (GpioDataRegs.GPADAT.bit.GPIO29)
 #define GET_INT_GENERAL         (!GpioDataRegs.GPBDAT.bit.GPIO55)
 #define GET_SYNC_IN             (!GpioDataRegs.GPBDAT.bit.GPIO55)
 

@@ -84,6 +84,7 @@ void init_gpios(void)
 
     /// GPDI7 Digital Input 7 <=> UDC_GPIO194
     GpioG2CtrlRegs.GPGMUX1.bit.GPIO194 = 0;
+    GpioG2CtrlRegs.GPGQSEL1.bit.GPIO194 = 3;
     GpioG2DataRegs.GPGCLEAR.bit.GPIO194 = 1;
     GpioG2CtrlRegs.GPGDIR.bit.GPIO194 = 0;
 
@@ -149,14 +150,16 @@ void init_gpios(void)
     GpioG2CtrlRegs.GPGDIR.bit.GPIO199 = 0;
 
     /// INT_ARM <=> UDC_GPIO28
-    //GpioCtrlRegs.GPAMUX2.bit.GPIO28 = 0;
-    //GpioDataRegs.GPACLEAR.bit.GPIO28 = 1;
-    //GpioCtrlRegs.GPADIR.bit.GPIO28 = 0;
+    GpioCtrlRegs.GPAMUX2.bit.GPIO28 = 0;
+    GpioCtrlRegs.GPAQSEL2.bit.GPIO28 = 3;
+    GpioDataRegs.GPACLEAR.bit.GPIO28 = 1;
+    GpioCtrlRegs.GPADIR.bit.GPIO28 = 0;
 
     /// INT_C28 <=> UDC_GPIO29
-    //GpioCtrlRegs.GPAMUX2.bit.GPIO29 = 0;
-    //GpioDataRegs.GPACLEAR.bit.GPIO29 = 1;
-    //GpioCtrlRegs.GPADIR.bit.GPIO29 = 0;
+    GpioCtrlRegs.GPAMUX2.bit.GPIO29 = 0;
+    GpioCtrlRegs.GPAQSEL2.bit.GPIO29 = 3;
+    GpioDataRegs.GPACLEAR.bit.GPIO29 = 1;
+    GpioCtrlRegs.GPADIR.bit.GPIO29 = 0;
 
     /// INT_GENERAL / SYNC_IN <=> UDC_GPIO55
     GpioCtrlRegs.GPBMUX2.bit.GPIO55 = 0;

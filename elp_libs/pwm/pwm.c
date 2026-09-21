@@ -380,7 +380,7 @@ void init_pwm_module(volatile struct EPWM_REGS *p_pwm_module, double freq,
     p_pwm_module->HRCNFG.bit.HRLOADB  = HR_CTR_ZERO_PRD;      // load on CTR = 0 and CTR = TBPRD
 
     /* Trip Zone - used to enable/disable PWM outputs via software */
-    GpioG1TripRegs.GPTRIP1SEL.bit.GPTRIP1SEL = 29;            // GPIO29
+    //GpioG1TripRegs.GPTRIP1SEL.bit.GPTRIP1SEL = 29;            // GPIO29
     p_pwm_module->TZSEL.bit.OSHT1 = 0;                        // One-shot trip
     p_pwm_module->TZCTL.bit.TZA = TZ_FORCE_LO;                //
     p_pwm_module->TZCTL.bit.TZB = TZ_FORCE_LO;                // PWM outputs forced to low state during trip.

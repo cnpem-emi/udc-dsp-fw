@@ -142,6 +142,9 @@
 
 #define PIN_STATUS_EXTERNAL_INTERLOCK   GET_GPDI7
 
+#define PIN_STATUS_QDS_P_INTERLOCK      GET_INT_C28
+#define PIN_STATUS_QDS_R_INTERLOCK      GET_INT_ARM
+
 #define PIN_STATUS_DCCT_1_STATUS        GET_GPDI9
 #define PIN_STATUS_DCCT_1_ACTIVE        GET_GPDI10
 #define PIN_STATUS_DCCT_2_STATUS        GET_GPDI11
@@ -212,9 +215,6 @@ static void turn_off(uint16_t dummy);
 
 static void reset_interlocks(uint16_t dummy);
 static inline void check_interlocks(void);
-
-interrupt void isr_trigger_qds_p(void);
-interrupt void isr_trigger_qds_r(void);
 
 /**
  * Main function for this power supply module
@@ -328,41 +328,6 @@ static void init_peripherals_drivers(void)
     ConfigCpuTimer(&CpuTimer0, C28_FREQ_MHZ, 1000000);
     CpuTimer0Regs.TCR.bit.TIE = 0;
 
-    /// Initialization of INT_C28 and INT_ARM for trigger qds ISR
-    EALLOW;
-
-    GpioCtrlRegs.GPAQSEL2.bit.GPIO28 = 0;
-    GpioCtrlRegs.GPAMUX2.bit.GPIO28 = 1;
-    GpioCtrlRegs.GPADIR.bit.GPIO28 = 0;
-    GpioTripRegs.GPTRIP8SEL.bit.GPTRIP8SEL = 28;
-
-    GpioCtrlRegs.GPAQSEL2.bit.GPIO29 = 0;
-    GpioCtrlRegs.GPAMUX2.bit.GPIO29 = 1;
-    GpioCtrlRegs.GPADIR.bit.GPIO29 = 0;
-    GpioTripRegs.GPTRIP7SEL.bit.GPTRIP7SEL = 29;
-
-    ECap1Regs.ECFRC.all = 0x0000;	// Desabilita interrupções temporariamente eCAP1
-    ECap1Regs.ECCLR.all = 0xFFFF;	// Limpa todas as flags de interrupção pendentes eCAP1
-
-    ECap2Regs.ECFRC.all = 0x0000;	// Desabilita interrupções temporariamente eCAP2
-    ECap2Regs.ECCLR.all = 0xFFFF;	// Limpa todas as flags de interrupção pendentes eCAP2
-
-    ECap1Regs.ECCTL1.bit.CAP1POL = 0;      // 0 = Evento 1 dispara na Borda de Subida (0 para 1) eCAP1
-    ECap1Regs.ECCTL1.bit.CAPLDEN = 1;      // 1 = Habilita carga dos registradores eCAP1
-
-    ECap2Regs.ECCTL1.bit.CAP1POL = 0;      // 0 = Evento 1 dispara na Borda de Subida (0 para 1) eCAP2
-    ECap2Regs.ECCTL1.bit.CAPLDEN = 1;      // 1 = Habilita carga dos registradores eCAP2
-
-    ECap1Regs.ECEINT.bit.CEVT1 = 1;        // Habilita interrupção no Evento 1 eCAP1
-    ECap2Regs.ECEINT.bit.CEVT1 = 1;        // Habilita interrupção no Evento 1 eCAP2
-
-    PieCtrlRegs.PIEIER4.bit.INTx1 = 1;     // eCAP1_INT está no Grupo 4, Interrupção 1 do PIE
-    PieCtrlRegs.PIEIER4.bit.INTx2 = 1;     // eCAP2_INT está no Grupo 4, Interrupção 1 do PIE
-
-    PieVectTable.ECAP1_INT = &isr_trigger_qds_p;
-    PieVectTable.ECAP2_INT = &isr_trigger_qds_r;
-
-    EDIS;
 }
 
 static void term_peripherals_drivers(void)
@@ -777,7 +742,6 @@ static void init_interruptions(void)
 
     IER |= M_INT1;
     IER |= M_INT3;
-    IER |= M_INT4; //Interrupt eCAP1 e eCAP2
     IER |= M_INT11;
 
     /// Enable global interrupts (EINT)
@@ -805,7 +769,7 @@ static void term_interruptions(void)
     disable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
     /// Clear flags
-    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT4 | M_INT11; //Interrupt M_INT4 for eCAP1 e eCAP2
+    PieCtrlRegs.PIEACK.all |= M_INT1 | M_INT3 | M_INT11;
 }
 
 /**
@@ -914,6 +878,37 @@ static void reset_interlocks(uint16_t dummy)
 static inline void check_interlocks(void)
 {
     //SET_DEBUG_GPIO1;
+    if(PIN_STATUS_QDS_P_INTERLOCK || PIN_STATUS_QDS_R_INTERLOCK)
+    {
+        uint16_t k;
+
+        // Force trip via software, disabling PWM outputs
+        EALLOW;
+        for(k = 0; k < g_pwm_modules.num_modules; k++)
+        {
+            g_pwm_modules.pwm_regs[k]->TZFRC.bit.OST = 1; // QDS Proteção
+            g_pwm_modules.pwm_state[k] = PWM_DISABLED;
+        }
+        EDIS;
+
+    	set_hard_interlock(0, QDS_Itlk);
+    }
+
+    if(!PIN_STATUS_EXTERNAL_INTERLOCK)
+    {
+        uint16_t i;
+
+        // Force trip via software, disabling PWM outputs
+        EALLOW;
+        for(i = 0; i < g_pwm_modules.num_modules; i++)
+        {
+            g_pwm_modules.pwm_regs[i]->TZFRC.bit.OST = 1; // QDS Proteção
+            g_pwm_modules.pwm_state[i] = PWM_DISABLED;
+        }
+        EDIS;
+
+    	set_hard_interlock(0, External_Itlk);
+    }
 
     if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
     {
@@ -971,13 +966,6 @@ static inline void check_interlocks(void)
     			set_soft_interlock(0, Load_Feedback_2_Fault);
     		}
     	}
-    }
-
-    if(!PIN_STATUS_EXTERNAL_INTERLOCK)
-    {
-    	disable_pwm_outputs(); // QDS Proteção
-
-    	set_hard_interlock(0, External_Itlk);
     }
 
     DINT;
@@ -1040,30 +1028,4 @@ static inline void check_interlocks(void)
     }
 
     //CLEAR_DEBUG_GPIO1;
-}
-
-interrupt void isr_trigger_qds_p(void)
-{
-    disable_pwm_outputs();
-
-    set_hard_interlock(0, QDS_Itlk);
-
-    EALLOW;
-    ECap1Regs.ECCLR.bit.CEVT1 = 1;         // Limpa a flag do Evento 1 eCAP1
-    ECap1Regs.ECCLR.bit.INT = 1;           // Limpa a flag global de interrupção do eCAP1
-	PieCtrlRegs.PIEACK.all = M_INT4;
-	EDIS;
-}
-
-interrupt void isr_trigger_qds_r(void)
-{
-    disable_pwm_outputs();
-
-    set_hard_interlock(0, QDS_Itlk);
-
-    EALLOW;
-    ECap2Regs.ECCLR.bit.CEVT1 = 1;         // Limpa a flag do Evento 1 eCAP2
-    ECap2Regs.ECCLR.bit.INT = 1;           // Limpa a flag global de interrupção do eCAP2
-	PieCtrlRegs.PIEACK.all = M_INT4;
-	EDIS;
 }
