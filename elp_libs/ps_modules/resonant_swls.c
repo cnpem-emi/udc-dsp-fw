@@ -18,7 +18,7 @@
  * modulation (PWM).
  *
  * @author lucas.carnevalli
- * @date 26/05/2026
+ * @date 28/09/2026
  *
  */
 
@@ -127,8 +127,10 @@
 /// PWM modulators
 #define PWM_MODULATOR_1                 g_pwm_modules.pwm_regs[0]
 #define PWM_MODULATOR_2                 g_pwm_modules.pwm_regs[1]
+
 #define PWM_MODULATOR_3                 g_pwm_modules.pwm_regs[2]
 #define PWM_MODULATOR_4                 g_pwm_modules.pwm_regs[3]
+
 #define PWM_ISR_CONTROLLER              g_pwm_modules.pwm_regs[4]
 
 /// Scope
@@ -145,6 +147,9 @@
 #define PIN_STATUS_CONTACTOR_K2         GET_GPDI6
 
 #define PIN_STATUS_EXTERNAL_INTERLOCK   GET_GPDI7
+
+#define PIN_STATUS_QDS_P_INTERLOCK      GET_INT_C28
+#define PIN_STATUS_QDS_R_INTERLOCK      GET_INT_ARM
 
 #define PIN_STATUS_DCCT_1_STATUS        GET_GPDI9
 #define PIN_STATUS_DCCT_1_ACTIVE        GET_GPDI10
@@ -164,7 +169,8 @@ typedef enum
     Opened_Contactor_K1_Fault,
 	Opened_Contactor_K2_Fault,
     External_Itlk,
-    IIB_Itlk
+    IIB_Itlk,
+    QDS_Itlk
 } hard_interlocks_t;
 
 typedef enum
@@ -306,7 +312,7 @@ static void init_peripherals_drivers(void)
     // ACTIVE RECTTIFIER SWITCHES
     init_pwm_module(PWM_MODULATOR_3, PWM_FREQ, 0, PWM_Sync_Slave, 0,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
-    init_pwm_module(PWM_MODULATOR_4, PWM_FREQ, 3, PWM_Sync_Slave, 180,
+    init_pwm_module(PWM_MODULATOR_4, PWM_FREQ, 1, PWM_Sync_Slave, 180,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
 
     set_pwm_deadtime_edge(PWM_MODULATOR_3, PWM_DEAD_TIME_RISING_ACT_RCT, PWM_DEAD_TIME_FALLING_ACT_RCT);
@@ -327,9 +333,11 @@ static void init_peripherals_drivers(void)
     PWM_MODULATOR_4->TBCTL.bit.PRDLD = TB_SHADOW;
 
     // This setting allows large frequency steps to happen without error
-    PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x01;
+    PWM_MODULATOR_1->TBCTL2.bit.PRDLDSYNC = 0x00;
+
+    PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x02;
     PWM_MODULATOR_3->TBCTL2.bit.PRDLDSYNC = 0x02;
-    PWM_MODULATOR_4->TBCTL2.bit.PRDLDSYNC = 0x03;
+    PWM_MODULATOR_4->TBCTL2.bit.PRDLDSYNC = 0x02;
 
     // Changing from PWM to FSM
     FREQ_MODULATED = PWM_FREQ;
@@ -743,11 +751,6 @@ static interrupt void isr_controller(void)
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;
 
     /// Clear interrupt flags for PWM interrupts
-    // PWM_MODULATOR_1->ETCLR.bit.INT = 1;
-    // PWM_MODULATOR_2->ETCLR.bit.INT = 1;
-    // PWM_MODULATOR_3->ETCLR.bit.INT = 1;
-    // PWM_MODULATOR_4->ETCLR.bit.INT = 1;
-
     PWM_ISR_CONTROLLER->ETCLR.bit.INT = 1;
     PieCtrlRegs.PIEACK.all |= M_INT3;
 
@@ -763,12 +766,7 @@ static void init_interruptions(void)
     PieVectTable.EPWM5_INT =  &isr_init_controller;
     EDIS;
 
-    PieCtrlRegs.PIEIER3.bit.INTx5 = 1; ////                                                 AQUI
-
-    enable_pwm_interrupt(PWM_MODULATOR_1);
-    enable_pwm_interrupt(PWM_MODULATOR_2);
-    enable_pwm_interrupt(PWM_MODULATOR_3);
-    enable_pwm_interrupt(PWM_MODULATOR_4);
+    PieCtrlRegs.PIEIER3.bit.INTx5 = 1;
 
     enable_pwm_interrupt(PWM_ISR_CONTROLLER);
 
@@ -792,12 +790,7 @@ static void term_interruptions(void)
 
     /// Clear enables
     IER = 0;
-    PieCtrlRegs.PIEIER3.bit.INTx5 = 0;  ///                                                     AQUI ePWM5
-
-    disable_pwm_interrupt(PWM_MODULATOR_1);
-    disable_pwm_interrupt(PWM_MODULATOR_2);
-    disable_pwm_interrupt(PWM_MODULATOR_3);
-    disable_pwm_interrupt(PWM_MODULATOR_4);
+    PieCtrlRegs.PIEIER3.bit.INTx5 = 0;
 
     // All PWMs are enable
     disable_pwm_interrupt(PWM_ISR_CONTROLLER);
@@ -869,7 +862,6 @@ static void turn_off(uint16_t dummy)
     disable_pwm_output(1);
     disable_pwm_output(2);
     disable_pwm_output(3);
-    disable_pwm_output(4);
 
     PIN_OPEN_CONTACTOR_K1;
     DELAY_US(TIMEOUT_CONTACTOR_K1_OPENED_MS*1000);
@@ -918,6 +910,39 @@ static void reset_interlocks(uint16_t dummy)
 static inline void check_interlocks(void)
 {
     //SET_DEBUG_GPIO1;
+    /*
+    if(PIN_STATUS_QDS_P_INTERLOCK || PIN_STATUS_QDS_R_INTERLOCK)
+    {
+        uint16_t k;
+
+        // Force trip via software, disabling PWM outputs
+        EALLOW;
+        for(k = 0; k < g_pwm_modules.num_modules; k++)
+        {
+            g_pwm_modules.pwm_regs[k]->TZFRC.bit.OST = 1; // QDS Proteção
+            g_pwm_modules.pwm_state[k] = PWM_DISABLED;
+        }
+        EDIS;
+
+        set_hard_interlock(0, QDS_Itlk);
+    }
+
+    if(!PIN_STATUS_EXTERNAL_INTERLOCK)
+    {
+        uint16_t i;
+
+        // Force trip via software, disabling PWM outputs
+        EALLOW;
+        for(i = 0; i < g_pwm_modules.num_modules; i++)
+        {
+            g_pwm_modules.pwm_regs[i]->TZFRC.bit.OST = 1; // QDS Proteção
+            g_pwm_modules.pwm_state[i] = PWM_DISABLED;
+        }
+        EDIS;
+
+        set_hard_interlock(0, External_Itlk);
+    }
+     */
 
     if(fabs(I_LOAD_MEAN) > MAX_ILOAD)
     {
@@ -942,7 +967,7 @@ static inline void check_interlocks(void)
     if(NUM_DCCTs && !PIN_STATUS_DCCT_2_STATUS)
     {
         set_soft_interlock(0, DCCT_2_Fault);
-    }*/
+    }
 
     if(PIN_STATUS_DCCT_1_ACTIVE)
     {
@@ -980,7 +1005,7 @@ static inline void check_interlocks(void)
     if(!PIN_STATUS_EXTERNAL_INTERLOCK)
     {
     	set_hard_interlock(0, External_Itlk);
-    }
+    }*/
 
     DINT;
 
@@ -1011,26 +1036,25 @@ static inline void check_interlocks(void)
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            if(V_DCLINK > MIN_V_DCLINK)
-            {
+            //if(V_DCLINK > MIN_V_DCLINK)
+            //{
             // After checking all the interlocks, the pwms may be enable
             g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
             enable_pwm_output(0);
             enable_pwm_output(1);
             enable_pwm_output(2);
             enable_pwm_output(3);
-            enable_pwm_output(4);
-            }
+            //}
         }
 
         else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
         /// Power supply ON
         {
-            if(V_DCLINK < MIN_V_DCLINK)
-            {
-                set_hard_interlock(0, DCLink_Undervoltage);
-                turn_off(0);
-            }
+            //if(V_DCLINK < MIN_V_DCLINK)
+            //{
+            //    set_hard_interlock(0, DCLink_Undervoltage);
+            //    turn_off(0);
+            //}
         }
     }
 
