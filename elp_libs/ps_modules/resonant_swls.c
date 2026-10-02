@@ -189,7 +189,7 @@ typedef enum
     High_Sync_Input_Frequency = 0x00000001
 } alarms_t;
 
-#define NUM_HARD_INTERLOCKS             IIB_Itlk + 1
+#define NUM_HARD_INTERLOCKS             QDS_Itlk + 1
 #define NUM_SOFT_INTERLOCKS             Load_Feedback_2_Fault + 1
 
 /**
@@ -312,9 +312,9 @@ static void init_peripherals_drivers(void)
     set_pwm_deadtime_edge(PWM_MODULATOR_2, PWM_DEAD_TIME_RISING, PWM_DEAD_TIME_FALLING);
 
     // ACTIVE RECTTIFIER SWITCHES
-    init_pwm_module(PWM_MODULATOR_3, PWM_FREQ, 1, PWM_Sync_Slave, 0,
+    init_pwm_module(PWM_MODULATOR_3, PWM_FREQ, 2, PWM_Sync_Slave, 180,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
-    init_pwm_module(PWM_MODULATOR_4, PWM_FREQ, 1, PWM_Sync_Slave, 180,
+    init_pwm_module(PWM_MODULATOR_4, PWM_FREQ, 0, PWM_Sync_Slave, 360,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
 
     set_pwm_deadtime_edge(PWM_MODULATOR_3, PWM_DEAD_TIME_RISING_ACT_RCT, PWM_DEAD_TIME_FALLING_ACT_RCT);
@@ -513,8 +513,8 @@ static void reset_controller(void)
     cfg_pwm_sync(PWM_MODULATOR_1, PWM_Sync_Master, 0.0);
     cfg_pwm_sync(PWM_MODULATOR_2, PWM_Sync_Slave, 180.0);
 
-    cfg_pwm_sync(PWM_MODULATOR_3, PWM_Sync_Slave, 0.0);
-    cfg_pwm_sync(PWM_MODULATOR_4, PWM_Sync_Slave, 180.0);
+    cfg_pwm_sync(PWM_MODULATOR_3, PWM_Sync_Slave, 180.0);
+    cfg_pwm_sync(PWM_MODULATOR_4, PWM_Sync_Slave, 360.0);
 
     g_ipc_ctom.ps_module[0].ps_status.bit.openloop = LOOP_STATE;
 
@@ -720,8 +720,8 @@ static interrupt void isr_controller(void)
 
         cfg_pwm_sync(PWM_MODULATOR_1, PWM_Sync_Master, 0.0);
         cfg_pwm_sync(PWM_MODULATOR_2, PWM_Sync_Slave, 180.0);
-        cfg_pwm_sync(PWM_MODULATOR_3, PWM_Sync_Slave, 0.0);
-        cfg_pwm_sync(PWM_MODULATOR_4, PWM_Sync_Slave, 180.0);
+        cfg_pwm_sync(PWM_MODULATOR_3, PWM_Sync_Slave, 180.0);
+        cfg_pwm_sync(PWM_MODULATOR_4, PWM_Sync_Slave, 360.0);
     }
 
     RUN_SCOPE(SCOPE);
@@ -1009,11 +1009,11 @@ static inline void check_interlocks(void)
     		}
     	}
     }
-
+    */
     if(!PIN_STATUS_EXTERNAL_INTERLOCK)
     {
     	set_hard_interlock(0, External_Itlk);
-    }*/
+    }
 
     DINT;
 
@@ -1044,25 +1044,25 @@ static inline void check_interlocks(void)
 
         if(g_ipc_ctom.ps_module[0].ps_status.bit.state == Initializing)
         {
-            //if(V_DCLINK > MIN_V_DCLINK)
-            //{
+            if(V_DCLINK > MIN_V_DCLINK)
+            {
             // After checking all the interlocks, the pwms may be enable
             g_ipc_ctom.ps_module[0].ps_status.bit.state = SlowRef;
             enable_pwm_output(0);
             enable_pwm_output(1);
             enable_pwm_output(2);
             enable_pwm_output(3);
-            //}
+            }
         }
 
         else if(g_ipc_ctom.ps_module[0].ps_status.bit.state > Initializing) 
         /// Power supply ON
         {
-            //if(V_DCLINK < MIN_V_DCLINK)
-            //{
-            //    set_hard_interlock(0, DCLink_Undervoltage);
-            //    turn_off(0);
-            //}
+            if(V_DCLINK < MIN_V_DCLINK)
+            {
+                set_hard_interlock(0, DCLink_Undervoltage);
+                turn_off(0);
+            }
         }
     }
 
