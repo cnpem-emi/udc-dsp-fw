@@ -92,6 +92,8 @@
 
 #define FREQ_MODULATED_COMPENS  g_controller_ctom.net_signals[7].f
 
+#define FREQ_STORED             g_controller_ctom.net_signals[8].f
+
 #define FREQ_MODULATED_FF       g_controller_ctom.output_signals[0].f
 
 /// Reference
@@ -310,7 +312,7 @@ static void init_peripherals_drivers(void)
     set_pwm_deadtime_edge(PWM_MODULATOR_2, PWM_DEAD_TIME_RISING, PWM_DEAD_TIME_FALLING);
 
     // ACTIVE RECTTIFIER SWITCHES
-    init_pwm_module(PWM_MODULATOR_3, PWM_FREQ, 0, PWM_Sync_Slave, 0,
+    init_pwm_module(PWM_MODULATOR_3, PWM_FREQ, 1, PWM_Sync_Slave, 0,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
     init_pwm_module(PWM_MODULATOR_4, PWM_FREQ, 1, PWM_Sync_Slave, 180,
                     PWM_ChB_Complementary, PWM_DEAD_TIME);
@@ -693,6 +695,7 @@ static interrupt void isr_controller(void)
         /// Closed-loop
         else
         {
+            FREQ_STORED = FREQ_MODULATED_FF;
             SATURATE(I_LOAD_REFERENCE, MAX_REF[0], MIN_REF[0]);
             run_dsp_error(ERROR_I_LOAD);
             run_dsp_pi(PI_CONTROLLER_I_LOAD);
@@ -703,6 +706,11 @@ static interrupt void isr_controller(void)
 
             run_dsp_vdclink_ff(FF_V_DCLINK);
             SATURATE(FREQ_MODULATED_FF, MAX_REF_CL, MIN_REF_CL);
+
+            float MAX_REF_WD = FREQ_STORED + 100;
+            float MIN_REF_WD = FREQ_STORED - 100;
+
+            SATURATE(FREQ_MODULATED_FF, MAX_REF_WD, MIN_REF_WD);
         }
 
         set_pwm_freq(PWM_MODULATOR_1, FREQ_MODULATED_FF);
