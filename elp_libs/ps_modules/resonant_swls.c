@@ -309,7 +309,7 @@ static void init_peripherals_drivers(void)
     PWM_MODULATOR_2->TBCTL.bit.PRDLD = TB_SHADOW;
 
     // This setting allows large frequency steps to happen without error
-    PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x01;
+    PWM_MODULATOR_2->TBCTL2.bit.PRDLDSYNC = 0x02;
 
 
     FREQ_MODULATED = PWM_FREQ;
