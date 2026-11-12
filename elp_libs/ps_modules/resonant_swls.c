@@ -142,8 +142,7 @@
 
 #define PIN_STATUS_EXTERNAL_INTERLOCK   GET_GPDI7
 
-#define PIN_STATUS_QDS_P_INTERLOCK      GET_INT_C28
-#define PIN_STATUS_QDS_R_INTERLOCK      GET_INT_ARM
+#define PIN_STATUS_QDS_INTERLOCK        GET_INT_C28
 
 #define PIN_STATUS_DCCT_1_STATUS        GET_GPDI9
 #define PIN_STATUS_DCCT_1_ACTIVE        GET_GPDI10
@@ -878,7 +877,7 @@ static void reset_interlocks(uint16_t dummy)
 static inline void check_interlocks(void)
 {
     //SET_DEBUG_GPIO1;
-    if(PIN_STATUS_QDS_P_INTERLOCK || PIN_STATUS_QDS_R_INTERLOCK)
+    if(PIN_STATUS_QDS_INTERLOCK)
     {
         uint16_t k;
 
