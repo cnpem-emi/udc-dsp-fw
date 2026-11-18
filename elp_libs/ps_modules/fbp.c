@@ -75,6 +75,9 @@
 #define PS1_SETPOINT                    g_ipc_ctom.ps_module[0].ps_setpoint
 #define PS1_REFERENCE                   g_ipc_ctom.ps_module[0].ps_reference
 
+#define PS1_SRLIM_I_LOAD_REFERENCE      &g_controller_ctom.dsp_modules.dsp_srlim[0]
+#define PS1_MAX_SLEWRATE_SLOWREF        g_controller_mtoc.dsp_modules.dsp_srlim[0].coeffs.s.max_slewrate
+
 #define ERROR_CALCULATOR_PS1            &g_controller_ctom.dsp_modules.dsp_error[0]
 #define PI_CONTROLLER_ILOAD_PS1         &g_controller_ctom.dsp_modules.dsp_pi[0]
 #define PI_CONTROLLER_ILOAD_PS1_COEFFS  g_controller_mtoc.dsp_modules.dsp_pi[0].coeffs.s
@@ -106,6 +109,9 @@
 
 #define PS2_SETPOINT                    g_ipc_ctom.ps_module[1].ps_setpoint
 #define PS2_REFERENCE                   g_ipc_ctom.ps_module[1].ps_reference
+
+#define PS2_SRLIM_I_LOAD_REFERENCE      &g_controller_ctom.dsp_modules.dsp_srlim[1]
+#define PS2_MAX_SLEWRATE_SLOWREF        g_controller_mtoc.dsp_modules.dsp_srlim[1].coeffs.s.max_slewrate
 
 #define ERROR_CALCULATOR_PS2            &g_controller_ctom.dsp_modules.dsp_error[1]
 #define PI_CONTROLLER_ILOAD_PS2         &g_controller_ctom.dsp_modules.dsp_pi[1]
@@ -139,6 +145,9 @@
 #define PS3_SETPOINT                    g_ipc_ctom.ps_module[2].ps_setpoint
 #define PS3_REFERENCE                   g_ipc_ctom.ps_module[2].ps_reference
 
+#define PS3_SRLIM_I_LOAD_REFERENCE      &g_controller_ctom.dsp_modules.dsp_srlim[2]
+#define PS3_MAX_SLEWRATE_SLOWREF        g_controller_mtoc.dsp_modules.dsp_srlim[2].coeffs.s.max_slewrate
+
 #define ERROR_CALCULATOR_PS3            &g_controller_ctom.dsp_modules.dsp_error[2]
 #define PI_CONTROLLER_ILOAD_PS3         &g_controller_ctom.dsp_modules.dsp_pi[2]
 #define PI_CONTROLLER_ILOAD_PS3_COEFFS  g_controller_mtoc.dsp_modules.dsp_pi[2].coeffs.s
@@ -170,6 +179,9 @@
 
 #define PS4_SETPOINT                    g_ipc_ctom.ps_module[3].ps_setpoint
 #define PS4_REFERENCE                   g_ipc_ctom.ps_module[3].ps_reference
+
+#define PS4_SRLIM_I_LOAD_REFERENCE      &g_controller_ctom.dsp_modules.dsp_srlim[3]
+#define PS4_MAX_SLEWRATE_SLOWREF        g_controller_mtoc.dsp_modules.dsp_srlim[3].coeffs.s.max_slewrate
 
 #define ERROR_CALCULATOR_PS4            &g_controller_ctom.dsp_modules.dsp_error[3]
 #define PI_CONTROLLER_ILOAD_PS4         &g_controller_ctom.dsp_modules.dsp_pi[3]
@@ -433,7 +445,18 @@ static void init_controller(void)
      * TODO: initialize WfmRef and Samples Buffer
      */
 
-    /// INITIALIZATION OF LOAD CURRENT CONTROL LOOP FOR POWER SUPPLY
+    /// INITIALIZATION OF LOAD CURRENT CONTROL LOOP FOR POWER SUPPLY 1
+
+    /**
+     *        name:     SRLIM_I_LOAD_REFERENCE
+     * description:     Load current slew-rate limiter
+     *    DP class:     DSP_SRLim
+     *          in:     PS1_SETPOINT
+     *         out:     PS1_REFERENCE
+     */
+
+    init_dsp_srlim(PS1_SRLIM_I_LOAD_REFERENCE, PS1_MAX_SLEWRATE_SLOWREF, ISR_CONTROL_FREQ,
+                   &PS1_SETPOINT, &PS1_REFERENCE);
 
     /**
      *        name:     ERROR_CALCULATOR_PS1
@@ -462,6 +485,17 @@ static void init_controller(void)
     /// INITIALIZATION OF LOAD CURRENT CONTROL LOOP FOR POWER SUPPLY 2
 
     /**
+     *        name:     SRLIM_I_LOAD_REFERENCE
+     * description:     Load current slew-rate limiter
+     *    DP class:     DSP_SRLim
+     *          in:     PS2_SETPOINT
+     *         out:     PS2_REFERENCE
+     */
+
+    init_dsp_srlim(PS2_SRLIM_I_LOAD_REFERENCE, PS2_MAX_SLEWRATE_SLOWREF, ISR_CONTROL_FREQ,
+                   &PS2_SETPOINT, &PS2_REFERENCE);
+
+    /**
      *        name:     ERROR_CALCULATOR_PS2
      * description:     Load current reference error
      *  dsp module:     DSP_Error
@@ -488,6 +522,17 @@ static void init_controller(void)
     /// INITIALIZATION OF LOAD CURRENT CONTROL LOOP FOR POWER SUPPLY 3
 
     /**
+     *        name:     SRLIM_I_LOAD_REFERENCE
+     * description:     Load current slew-rate limiter
+     *    DP class:     DSP_SRLim
+     *          in:     PS3_SETPOINT
+     *         out:     PS3_REFERENCE
+     */
+
+    init_dsp_srlim(PS3_SRLIM_I_LOAD_REFERENCE, PS3_MAX_SLEWRATE_SLOWREF, ISR_CONTROL_FREQ,
+                   &PS3_SETPOINT, &PS3_REFERENCE);
+
+    /**
      *        name:     ERROR_CALCULATOR_PS3
      * description:     Load current reference error
      *  dsp module:     DSP_Error
@@ -512,6 +557,17 @@ static void init_controller(void)
                 &g_controller_ctom.output_signals[2].f);
 
     /// INITIALIZATION OF LOAD CURRENT CONTROL LOOP FOR POWER SUPPLY 4
+
+    /**
+     *        name:     SRLIM_I_LOAD_REFERENCE
+     * description:     Load current slew-rate limiter
+     *    DP class:     DSP_SRLim
+     *          in:     PS4_SETPOINT
+     *         out:     PS4_REFERENCE
+     */
+
+    init_dsp_srlim(PS4_SRLIM_I_LOAD_REFERENCE, PS4_MAX_SLEWRATE_SLOWREF, ISR_CONTROL_FREQ,
+                   &PS4_SETPOINT, &PS4_REFERENCE);
 
     /**
      *        name:     ERROR_CALCULATOR_PS4
@@ -553,6 +609,8 @@ static void reset_controller(uint16_t id)
 
     PS_SETPOINT(id) = 0.0;
     PS_REFERENCE(id) = 0.0;
+
+    reset_dsp_srlim(&g_controller_ctom.dsp_modules.dsp_srlim[id]);
 
     reset_dsp_error(&g_controller_ctom.dsp_modules.dsp_error[id]);
     reset_dsp_pi(&g_controller_ctom.dsp_modules.dsp_pi[id]);
@@ -683,7 +741,7 @@ static interrupt void isr_controller(void)
                     case SlowRef:
                     case SlowRefSync:
                     {
-                        PS_REFERENCE(i) = PS_SETPOINT(i);
+                    	run_dsp_srlim(&g_controller_ctom.dsp_modules.dsp_srlim[i], USE_MODULE);
                         break;
                     }
                     case RmpWfm:
